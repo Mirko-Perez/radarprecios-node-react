@@ -1,0 +1,27 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#E53E3E" stroke="#ffffff" stroke-width="8"/>
+  <!-- Inner decorative rings -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.4"/>
+  <!-- Radar sweep lines -->
+  <g opacity="0.3">
+    <line x1="256" y1="256" x2="456" y2="256" stroke="#ffffff" stroke-width="2"/>
+    <line x1="256" y1="256" x2="436" y2="136" stroke="#ffffff" stroke-width="2"/>
+    <line x1="256" y1="256" x2="376" y2="76" stroke="#ffffff" stroke-width="2"/>
+    <line x1="256" y1="256" x2="256" y2="56" stroke="#ffffff" stroke-width="2"/>
+  </g>
+  <!-- Radar dots -->
+  <circle cx="356" cy="156" r="4" fill="#ffffff"/>
+  <circle cx="406" cy="206" r="3" fill="#ffffff"/>
+  <circle cx="326" cy="326" r="3" fill="#ffffff"/>
+  <circle cx="186" cy="286" r="4" fill="#ffffff"/>
+  <!-- Main text RADAR -->
+  <text x="256" y="230" font-family="Arial Black, sans-serif" font-size="48" font-weight="900" text-anchor="middle" fill="#ffffff" letter-spacing="2px">RADAR</text>
+  <!-- Subtitle PRECIOS -->
+  <text x="256" y="280" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle" fill="#ffffff" letter-spacing="1px">PRECIOS</text>
+  <!-- Small Fritz text -->
+  <text x="256" y="320" font-family="Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle" fill="#ffffff" opacity="0.8">FRITZFOOD</text>
+  <!-- Price symbol -->
+  <text x="256" y="180" font-family="Arial Black, sans-serif" font-size="32" font-weight="900" text-anchor="middle" fill="#ffffff">$</text>
+</svg>

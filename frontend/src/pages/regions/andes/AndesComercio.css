@@ -1,0 +1,274 @@
+.andes-container {
+  max-width: 420px;
+  margin: 60px auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.10);
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.andes-container h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  color: #222;
+  font-weight: 700;
+}
+
+.andes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 1.5rem;
+}
+
+.andes-form select,
+.andes-form input[type='text'],
+.andes-form input[type='file'] {
+  padding: 0.7rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.andes-form button {
+  padding: 0.8rem;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 6px;
+  background: #1976d2;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 0.5rem;
+}
+
+.andes-form button:hover {
+  background: #1565c0;
+}
+
+.andes-btn.back-btn {
+  background: #bdbdbd;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.andes-btn.back-btn:hover {
+  background: #9e9e9e;
+}
+
+.error {
+  color: #d32f2f;
+  margin-bottom: 0.5rem;
+}
+
+.similares {
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.andes-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.andes-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.andes-list img {
+  max-width: 50px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+@media (max-width: 600px) {
+  .andes-container {
+    max-width: 98vw;
+    margin: 20px auto;
+    padding: 1rem 0.5rem;
+    border-radius: 10px;
+  }
+
+  .andes-form button,
+  .andes-form select,
+  .andes-form input[type='text'],
+  .andes-form input[type='file'] {
+    font-size: 1rem;
+    padding: 0.6rem;
+  }
+
+  .andes-list img {
+    max-width: 36px;
+  }
+}
+
+/* Modern styles for AndesVerTodo */
+.andes-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.andes-list li {
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: background 0.2s, box-shadow 0.2s;
+  font-size: 1.05em;
+}
+
+.andes-list li:hover {
+  background: #e3f2fd;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+}
+
+.andes-container>h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.4rem;
+  color: #1976d2;
+  font-weight: 700;
+}
+
+.andes-section-title {
+  font-size: 1.15em;
+  font-weight: 600;
+  color: #1976d2;
+  margin-bottom: 0.5em;
+  margin-top: 1em;
+}
+
+.andes-group-title {
+  font-size: 1.08em;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.3em;
+  margin-top: 0.7em;
+}
+
+@media (max-width: 600px) {
+  .andes-list li {
+    font-size: 0.98em;
+    padding: 10px 8px;
+  }
+}
+
+.andes-table th,
+.andes-table td {
+  border: 1px solid #e0e0e0;
+}
+
+.andes-table th {
+  font-weight: 700;
+}
+
+.andes-table-container {
+  overflow-x: auto;
+}
+
+.andes-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+  background: #fff;
+}
+
+.andes-th,
+.andes-td-product,
+.andes-td-price,
+.andes-td-empty,
+.andes-th-store,
+.andes-th-product {
+  border: 1px solid #e0e0e0;
+  padding: 8px;
+}
+
+.andes-th {
+  background: #e3eafc;
+  font-weight: 700;
+  text-align: center;
+}
+
+.andes-th-product {
+  text-align: left;
+  min-width: 220px;
+}
+
+.andes-th-store {
+  text-align: center;
+}
+
+.andes-group-row .andes-td-group {
+  background: #f5f7fa;
+  font-weight: 700;
+  border-top: 2px solid #b0bec5;
+  text-align: left;
+  padding: 8px;
+  font-size: 1.08em;
+}
+
+.andes-td-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.andes-product-img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-right: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+}
+
+.andes-product-name {
+  font-weight: 500;
+}
+
+.andes-product-brand {
+  margin-left: 8px;
+  color: #1976d2;
+  font-size: 0.98em;
+}
+
+.andes-td-price {
+  text-align: center;
+  background: #fffde7;
+  font-weight: 700;
+  color: #333;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.andes-td-empty {
+  text-align: center;
+  background: #fafafa;
+  color: #bbb;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.andes-search {
+  margin-bottom: 18px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #b0bec5;
+  font-size: 1em;
+}
