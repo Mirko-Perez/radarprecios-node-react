@@ -1,70 +1,63 @@
-import React, { Suspense } from 'react'
-import {
-  Navigate,
-  Route,
-  BrowserRouter as Router,
-  Routes,
-} from 'react-router-dom'
-import { ToastContainer } from 'react-toastify'
-import { AuthProvider } from '../contexts/AuthContext'
-import 'react-toastify/dist/ReactToastify.css'
-import './App.css'
-import LocationPermission from '../components/common/LocationPermission'
-import PrivateRoute from '../components/common/PrivateRoute'
-import Login from '../pages/auth/Login'
-import Menu from '../pages/dashboard/Menu'
-import MenuViewer from '../pages/dashboard/MenuViewer'
-import Andes from '../pages/regions/andes/Andes'
-import AndesComercio from '../pages/regions/andes/AndesComercio'
-import AndesMarca from '../pages/regions/andes/AndesMarca'
-import AndesPrecio from '../pages/regions/andes/AndesPrecio'
-import AndesProducto from '../pages/regions/andes/AndesProducto'
-import AndesVerTodo from '../pages/regions/andes/AndesVerTodo'
-import Capital from '../pages/regions/capital/Capital'
-import CapitalComercio from '../pages/regions/capital/CapitalComercio'
-import CapitalMarca from '../pages/regions/capital/CapitalMarca'
-import CapitalPrecio from '../pages/regions/capital/CapitalPrecio'
-import CapitalProducto from '../pages/regions/capital/CapitalProducto'
-import CapitalVerTodo from '../pages/regions/capital/CapitalVerTodo'
-import Centro from '../pages/regions/centro/Centro'
-import CentroComercio from '../pages/regions/centro/CentroComercio'
-import CentroMarca from '../pages/regions/centro/CentroMarca'
-import CentroPrecio from '../pages/regions/centro/CentroPrecio'
-import CentroProducto from '../pages/regions/centro/CentroProducto'
-import CentroVerTodo from '../pages/regions/centro/CentroVerTodo'
-import Centrooccidente from '../pages/regions/centrooccidente/Centrooccidente'
-import CentrooccidenteComercio from '../pages/regions/centrooccidente/CentrooccidenteComercio'
-import CentrooccidenteMarca from '../pages/regions/centrooccidente/CentrooccidenteMarca'
-import CentrooccidentePrecio from '../pages/regions/centrooccidente/CentrooccidentePrecio'
-import CentrooccidenteProducto from '../pages/regions/centrooccidente/CentrooccidenteProducto'
-import CentrooccidenteVerTodo from '../pages/regions/centrooccidente/CentrooccidenteVerTodo'
-import CheckIn from '../pages/shared/CheckIn'
-import Region from '../pages/shared/Region'
-
-import Dashboard from '../pages/admin/dashboard/Dashboard'
-import DashboardAvanzado from '../pages/admin/dashboard/DashboardAvanzado'
-import ObservationsList from '../pages/admin/dashboard/ObservationsList'
-import CrearComercio from '../pages/admin/products/CrearComercio'
-import CrearMarca from '../pages/admin/products/CrearMarca'
-import CrearProducto from '../pages/admin/products/CrearProducto'
-import GestionProductos from '../pages/admin/products/GestionProductos'
-import MenuParametros from '../pages/admin/products/MenuParametros'
-import CreacionUsuario from '../pages/admin/users/CreacionUsuario'
-import ModificarUsuario from '../pages/admin/users/ModificarUsuario'
-import UserManagement from '../pages/admin/users/UserManagement'
-import MenuAdmin from '../pages/dashboard/MenuAdmin'
-import Occidente from '../pages/regions/occidente/Occidente'
-import OccidenteComercio from '../pages/regions/occidente/OccidenteComercio'
-import OccidenteMarca from '../pages/regions/occidente/OccidenteMarca'
-import OccidentePrecio from '../pages/regions/occidente/OccidentePrecio'
-import OccidenteProducto from '../pages/regions/occidente/OccidenteProducto'
-import OccidenteVerTodo from '../pages/regions/occidente/OccidenteVerTodo'
-import Oriente from '../pages/regions/oriente/Oriente'
-import OrienteComercio from '../pages/regions/oriente/OrienteComercio'
-import OrienteMarca from '../pages/regions/oriente/OrienteMarca'
-import OrientePrecio from '../pages/regions/oriente/OrientePrecio'
-import OrienteProducto from '../pages/regions/oriente/OrienteProducto'
-import OrienteVerTodo from '../pages/regions/oriente/OrienteVerTodo'
+import { Suspense } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "../contexts/AuthContext";
+import "react-toastify/dist/ReactToastify.css";
+import "./App.css";
+import LocationPermission from "../components/common/LocationPermission";
+import PrivateRoute from "../components/common/PrivateRoute";
+import Dashboard from "../pages/admin/dashboard/Dashboard";
+import DashboardAvanzado from "../pages/admin/dashboard/DashboardAvanzado";
+import ObservationsList from "../pages/admin/dashboard/ObservationsList";
+import CrearComercio from "../pages/admin/products/CrearComercio";
+import CrearMarca from "../pages/admin/products/CrearMarca";
+import CrearProducto from "../pages/admin/products/CrearProducto";
+import GestionProductos from "../pages/admin/products/GestionProductos";
+import MenuParametros from "../pages/admin/products/MenuParametros";
+import CreacionUsuario from "../pages/admin/users/CreacionUsuario";
+import ModificarUsuario from "../pages/admin/users/ModificarUsuario";
+import UserManagement from "../pages/admin/users/UserManagement";
+import Login from "../pages/auth/Login";
+import Menu from "../pages/dashboard/Menu";
+import MenuAdmin from "../pages/dashboard/MenuAdmin";
+import MenuViewer from "../pages/dashboard/MenuViewer";
+import Andes from "../pages/regions/andes/Andes";
+import AndesComercio from "../pages/regions/andes/AndesComercio";
+import AndesMarca from "../pages/regions/andes/AndesMarca";
+import AndesPrecio from "../pages/regions/andes/AndesPrecio";
+import AndesProducto from "../pages/regions/andes/AndesProducto";
+import AndesVerTodo from "../pages/regions/andes/AndesVerTodo";
+import Capital from "../pages/regions/capital/Capital";
+import CapitalComercio from "../pages/regions/capital/CapitalComercio";
+import CapitalMarca from "../pages/regions/capital/CapitalMarca";
+import CapitalPrecio from "../pages/regions/capital/CapitalPrecio";
+import CapitalProducto from "../pages/regions/capital/CapitalProducto";
+import CapitalVerTodo from "../pages/regions/capital/CapitalVerTodo";
+import Centro from "../pages/regions/centro/Centro";
+import CentroComercio from "../pages/regions/centro/CentroComercio";
+import CentroMarca from "../pages/regions/centro/CentroMarca";
+import CentroPrecio from "../pages/regions/centro/CentroPrecio";
+import CentroProducto from "../pages/regions/centro/CentroProducto";
+import CentroVerTodo from "../pages/regions/centro/CentroVerTodo";
+import Centrooccidente from "../pages/regions/centrooccidente/Centrooccidente";
+import CentrooccidenteComercio from "../pages/regions/centrooccidente/CentrooccidenteComercio";
+import CentrooccidenteMarca from "../pages/regions/centrooccidente/CentrooccidenteMarca";
+import CentrooccidentePrecio from "../pages/regions/centrooccidente/CentrooccidentePrecio";
+import CentrooccidenteProducto from "../pages/regions/centrooccidente/CentrooccidenteProducto";
+import CentrooccidenteVerTodo from "../pages/regions/centrooccidente/CentrooccidenteVerTodo";
+import Occidente from "../pages/regions/occidente/Occidente";
+import OccidenteComercio from "../pages/regions/occidente/OccidenteComercio";
+import OccidenteMarca from "../pages/regions/occidente/OccidenteMarca";
+import OccidentePrecio from "../pages/regions/occidente/OccidentePrecio";
+import OccidenteProducto from "../pages/regions/occidente/OccidenteProducto";
+import OccidenteVerTodo from "../pages/regions/occidente/OccidenteVerTodo";
+import Oriente from "../pages/regions/oriente/Oriente";
+import OrienteComercio from "../pages/regions/oriente/OrienteComercio";
+import OrienteMarca from "../pages/regions/oriente/OrienteMarca";
+import OrientePrecio from "../pages/regions/oriente/OrientePrecio";
+import OrienteProducto from "../pages/regions/oriente/OrienteProducto";
+import OrienteVerTodo from "../pages/regions/oriente/OrienteVerTodo";
+import CheckIn from "../pages/shared/CheckIn";
+import Region from "../pages/shared/Region";
 
 function App() {
   return (
@@ -72,7 +65,7 @@ function App() {
       <LocationPermission>
         <div
           className="app-container"
-          style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}
+          style={{ minHeight: "100vh", backgroundColor: "#f5f5f5" }}
         >
           <Suspense fallback={<div className="loading">Cargando...</div>}>
             <Routes>
@@ -536,7 +529,7 @@ function App() {
         </div>
       </LocationPermission>
     </AuthProvider>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -1,6 +1,6 @@
-import { useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
-import { hasPermission, hasAnyPermission } from '../lib/utils/permissions';
+import { useContext } from "react";
+import { AuthContext } from "../contexts/AuthContext";
+import { hasAnyPermission, hasPermission } from "../lib/utils/permissions";
 
 /**
  * Custom hook to check user permissions
@@ -40,9 +40,9 @@ const usePermissions = () => {
     can,
     canAny,
     has,
-    isAdmin: user?.permisos?.includes('admin') || false,
-    isEditor: user?.permisos?.includes('edit') || false,
-    isViewer: user?.permisos?.includes('view') || false,
+    isAdmin: user?.permisos?.includes("admin") || false,
+    isEditor: user?.permisos?.includes("edit") || false,
+    isViewer: user?.permisos?.includes("view") || false,
   };
 };
 

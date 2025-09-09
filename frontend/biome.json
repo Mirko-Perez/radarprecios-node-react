@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.2.3/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -21,7 +21,10 @@
     "rules": {
       "recommended": true,
       "a11y": { "useKeyWithClickEvents": "off" },
-      "correctness": { "useExhaustiveDependencies": "off" }
+      "correctness": {
+        "useExhaustiveDependencies": "off",
+        "useUniqueElementIds": "off"
+      }
     }
   },
   "javascript": {
