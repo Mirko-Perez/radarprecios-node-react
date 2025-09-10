@@ -103,6 +103,7 @@ const MenuAdmin = () => {
 
       {/* Botón hamburguesa mobile */}
       <button
+        type="button"
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white shadow-md hover:bg-gray-50 transition-colors"
         aria-label="Abrir menú"
@@ -144,17 +145,18 @@ const MenuAdmin = () => {
               const isActive = activeSection === item.id;
               return (
                 <button
+                  type="button"
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
                   className={`
-              w-full flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors text-left
-              ${isActive ? "bg-purple-100 text-purple-700 border-l-4 border-purple-700" : "bg-gray-50 text-gray-700 hover:bg-gray-100"}
+              w-full flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors text-left 
+              ${isActive ? "bg-purple-100 text-purple-700 border-l-4 border-purple-700 hover:bg-gray-100" : "bg-gray-50 text-gray-700 hover:bg-gray-100"}
             `}
                 >
                   <Icon
                     className={`w-5 h-5 mr-3 ${isActive ? "text-purple-700" : "text-gray-400"}`}
                   />
-                  <span className="truncate">{item.label}</span>
+                  <span className="text-wrap text-center">{item.label}</span>
                 </button>
               );
             })}
@@ -164,6 +166,7 @@ const MenuAdmin = () => {
         {/* Botón volver fijo abajo */}
         <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
           <button
+            type="button"
             onClick={() => navigate("/menu")}
             className="w-full flex items-center px-3 py-3 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-800 transition-colors"
           >
