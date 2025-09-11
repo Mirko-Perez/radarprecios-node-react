@@ -6,6 +6,7 @@ import {
 } from '../controllers/adminController.js';
 import { crearUsuarioRules } from '../validators/usuarioValidator.js';
 import { validateJWT } from '../middlewares/validateJWT.js';
+import { listarPermisosUsuario } from '../controllers/permisos.controller.js';
 
 const router = Router();
 
@@ -23,5 +24,8 @@ router.get('/usuarios', listarUsuarios);
 
 // Ruta para actualizar el estado de un usuario (solo administradores)
 router.put('/usuarios/:userId/estado', actualizarEstadoUsuario);
+
+// GET: permisos de un usuario
+router.get("/:id/permisos", listarPermisosUsuario);
 
 export default router;

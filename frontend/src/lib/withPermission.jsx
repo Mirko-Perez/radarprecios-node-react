@@ -1,7 +1,7 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import NoAccess from '../components/common/NoAccess';
+import React from "react";
+import { Navigate } from "react-router-dom";
+import NoAccess from "../components/common/NoAccess";
+import { useAuth } from "../contexts/AuthContext";
 
 /**
  * Higher-Order Component to protect routes based on permissions
@@ -22,11 +22,11 @@ import NoAccess from '../components/common/NoAccess';
  * @returns {React.Component} - Protected component
  */
 const withPermission = (WrappedComponent, options = {}) => {
-  const { 
-    requiredPermission, 
+  const {
+    requiredPermission,
     redirectToLogin = true,
     showFallback = true,
-    fallbackComponent: FallbackComponent = NoAccess
+    fallbackComponent: FallbackComponent = NoAccess,
   } = options;
 
   const WithPermission = (props) => {
@@ -41,20 +41,17 @@ const withPermission = (WrappedComponent, options = {}) => {
     // If no user is logged in
     if (!user) {
       return redirectToLogin ? (
-        <Navigate 
-          to="/login" 
-          state={{ from: location.pathname }} 
-          replace 
-        />
+        <Navigate to="/login" state={{ from: location.pathname }} replace />
       ) : (
         <NoAccess />
       );
     }
 
     // Check if user has the required permission
-    const hasAccess = !requiredPermission || 
-                     hasPermission(user, requiredPermission) || 
-                     hasPermission(user, 'admin');
+    const hasAccess =
+      !requiredPermission ||
+      hasPermission(user, requiredPermission) ||
+      hasPermission(user, "admin");
 
     // If user has permission, render the component
     if (hasAccess) {
@@ -71,7 +68,8 @@ const withPermission = (WrappedComponent, options = {}) => {
   };
 
   // Set a display name for better debugging
-  const componentName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
+  const componentName =
+    WrappedComponent.displayName || WrappedComponent.name || "Component";
   WithPermission.displayName = `withPermission(${componentName})`;
 
   return WithPermission;

@@ -1,50 +1,54 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Rutas permitidas para viewers (permission_id = 4)
 const ALLOWED_VIEWER_PATHS = [
-  '/regiones',
-  '/logout' // Permitir cierre de sesión
+  "/regiones",
+  "/check-in",
+  "/region",
+  "/logout", // Permitir cierre de sesión
+  "/menu",
 ];
 
 // Rutas de ver-todo permitidas para viewers
 const ALLOWED_VER_TODO_PATHS = [
-  'andes',
-  'capital',
-  'centro',
-  'centroccidente',
-  'occidente',
-  'oriente'
+  "andes",
+  "capital",
+  "centro",
+  "centroccidente",
+  "occidente",
+  "oriente",
 ];
 
 // Función para verificar si una ruta está permitida para el viewer
 const isViewerPathAllowed = (path) => {
   // Normalizar la ruta
-  const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
-  
+  const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path;
+
   // Verificar rutas permitidas directamente
-  if (ALLOWED_VIEWER_PATHS.some(p => normalizedPath === p)) {
+  if (ALLOWED_VIEWER_PATHS.some((p) => normalizedPath === p)) {
     return true;
   }
-  
+
   // Verificar rutas de ver-todo
-  if (normalizedPath.startsWith('/regiones/')) {
-    const subPath = normalizedPath.replace('/regiones/', '');
-    const [region] = subPath.split('/');
-    
+  if (normalizedPath.startsWith("/regiones/")) {
+    const subPath = normalizedPath.replace("/regiones/", "");
+    const [region] = subPath.split("/");
+
     // Permitir /regiones/[region]/ver-todo
-    if (subPath.endsWith('/ver-todo') || subPath === 'ver-todo') {
-      const regionName = subPath.replace('/ver-todo', '').replace('ver-todo', '');
+    if (subPath.endsWith("/ver-todo") || subPath === "ver-todo") {
+      const regionName = subPath
+        .replace("/ver-todo", "")
+        .replace("ver-todo", "");
       return ALLOWED_VER_TODO_PATHS.includes(regionName);
     }
-    
+
     // Permitir /regiones/[region] (sin nada más)
     if (subPath === region && ALLOWED_VER_TODO_PATHS.includes(region)) {
       return true;
     }
   }
-  
+
   return false;
 };
 
@@ -78,8 +82,8 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     const isPathAllowed = isViewerPathAllowed(currentPath);
 
     if (!isPathAllowed) {
-      // Redirigir a la página de regiones si el viewer intenta acceder a una ruta no permitida
-      return <Navigate to="/regiones" replace />;
+      // Redirigir a /menu si el viewer intenta acceder a una ruta no permitida
+      return <Navigate to="/menu" replace />;
     }
   }
 

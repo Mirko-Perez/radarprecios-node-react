@@ -51,29 +51,31 @@ const Menu = () => {
 
         {/* Menu Cards */}
         <div className="space-y-4">
-          {/* Check-in */}
-          <button
-            type="button"
-            onClick={() => navigate("/check-in")}
-            className="w-full bg-white hover:bg-blue-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-blue-100 group-hover:bg-blue-200 rounded-full p-3 transition-colors duration-300">
-                  <FiCheckCircle className="w-6 h-6 text-blue-600" />
+        {/* Check-in: solo usuarios con permisoId = 4 = Promotores */}
+          {(user?.permissionId === 4 ) && (
+            <button
+              type="button"
+              onClick={() => navigate("/check-in")}
+              className="w-full bg-white hover:bg-blue-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-blue-100 group-hover:bg-blue-200 rounded-full p-3 transition-colors duration-300">
+                    <FiCheckCircle className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-xl font-semibold text-gray-800">
+                      Hacer Check-In
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Registra tu entrada o salida
+                    </p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Hacer Check-In
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    Registra tu entrada o salida
-                  </p>
-                </div>
+                <FiArrowRight className="w-6 h-6 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
-              <FiArrowRight className="w-6 h-6 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </div>
-          </button>
+            </button>
+          )}
 
           {/* Admin Panel */}
           {isAdmin && (

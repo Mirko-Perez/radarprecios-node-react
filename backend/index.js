@@ -67,6 +67,9 @@ app.use('/api/observations', observationsRoutes);
 import checkinsRoutes from './src/routes/checkinsRoutes.js';
 app.use('/api/checkins', checkinsRoutes);
 
+import permisosRouter from "./src/routes/permisos.routes.js";
+app.use("/api/permisos", permisosRouter);
+
 // 2. Servir archivos estáticos del frontend
 const staticPath = path.join(__dirname, './build-pwa');
 

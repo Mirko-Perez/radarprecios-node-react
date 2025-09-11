@@ -1,146 +1,146 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useAuth } from '../../../contexts/AuthContext';
-import '../../dashboard/Menu.css';
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../../contexts/AuthContext";
+import "../../dashboard/Menu.css";
 
 const CrearComercio = ({ onCancel }) => {
-    const [nombre, setNombre] = useState('');
-    const [regionId, setRegionId] = useState('');
-    const [regiones, setRegiones] = useState([]);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [regionId, setRegionId] = useState("");
+  const [regiones, setRegiones] = useState([]);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-    // eliminado navigate, se usará onCancel
-    const { user } = useAuth();
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  // eliminado navigate, se usará onCancel
+  const { user } = useAuth();
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
-    useEffect(() => {
-        const fetchRegiones = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get(`${API_URL}/regions`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                setRegiones(response.data || []);
-            } catch (err) {
-                console.error('Error fetching regions:', err);
-                setError('Error al cargar las regiones');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchRegiones();
-    }, [API_URL]);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!nombre.trim() || !regionId) {
-            setError('Por favor completa todos los campos');
-            return;
-        }
-
-        setSubmitting(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            const token = localStorage.getItem('token');
-            await axios.post(
-                `${API_URL}/stores`,
-                {
-                    store_name: nombre.trim(),
-                    region_id: regionId
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-
-            setSuccess('Comercio creado exitosamente');
-            setNombre('');
-            setRegionId('');
-        } catch (err) {
-            console.error('Error creating store:', err);
-            setError(err.response?.data?.message || 'Error al crear el comercio');
-        } finally {
-            setSubmitting(false);
-        }
+  useEffect(() => {
+    const fetchRegiones = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(`${API_URL}/regions`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setRegiones(response.data || []);
+      } catch (err) {
+        console.error("Error fetching regions:", err);
+        setError("Error al cargar las regiones");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    if (loading) {
-        return <div className="loading">Cargando regiones...</div>;
+    fetchRegiones();
+  }, [API_URL]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!nombre.trim() || !regionId) {
+      setError("Por favor completa todos los campos");
+      return;
     }
 
-    return (
-        <div className="form-container">
-            <h2>Crear Nuevo Comercio</h2>
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
 
-            {error && <div className="alert alert-danger">{error}</div>}
-            {success && <div className="alert alert-success">{success}</div>}
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API_URL}/stores`,
+        {
+          store_name: nombre.trim(),
+          region_id: Number(regionId),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
 
-            <form onSubmit={handleSubmit} className="form">
-                <div className="form-group">
-                    <label htmlFor="region">Región:</label>
-                    <select
-                        id="region"
-                        value={regionId}
-                        onChange={(e) => setRegionId(e.target.value)}
-                        className="form-control"
-                        disabled={submitting}
-                        required
-                    >
-                        <option value="">Selecciona una región</option>
-                        {regiones.map(region => (
-                            <option key={region.region_id} value={region.region_id}>
-                                {region.region_name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+      setSuccess("Comercio creado exitosamente");
+      setNombre("");
+      setRegionId("");
+    } catch (err) {
+      console.error("Error creating store:", err);
+      setError(err.response?.data?.message || "Error al crear el comercio");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-                <div className="form-group">
-                    <label htmlFor="nombre">Nombre del Comercio:</label>
-                    <input
-                        type="text"
-                        id="nombre"
-                        value={nombre}
-                        onChange={(e) => setNombre(e.target.value)}
-                        className="form-control"
-                        disabled={submitting}
-                        required
-                    />
-                </div>
+  if (loading) {
+    return <div className="loading">Cargando regiones...</div>;
+  }
 
-                <div className="form-actions">
-                    <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={submitting}
-                    >
-                        {submitting ? 'Guardando...' : 'Guardar Comercio'}
-                    </button>
+  return (
+    <div className="form-container">
+      <h2>Crear Nuevo Comercio</h2>
 
-                    <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={onCancel}
-                        disabled={submitting}
-                    >
-                        Volver
-                    </button>
-                </div>
-            </form>
+      {error && <div className="alert alert-danger">{error}</div>}
+      {success && <div className="alert alert-success">{success}</div>}
 
-            <style jsx>{`
+      <form onSubmit={handleSubmit} className="form">
+        <div className="form-group">
+          <label htmlFor="region">Región:</label>
+          <select
+            id="region"
+            value={regionId}
+            onChange={(e) => setRegionId(e.target.value)}
+            className="form-control"
+            disabled={submitting}
+            required
+          >
+            <option value="">Selecciona una región</option>
+            {regiones.map((region) => (
+              <option key={region.region_id} value={region.region_id}>
+                {region.region_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="nombre">Nombre del Comercio:</label>
+          <input
+            type="text"
+            id="nombre"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            className="form-control"
+            disabled={submitting}
+            required
+          />
+        </div>
+
+        <div className="form-actions">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={submitting}
+          >
+            {submitting ? "Guardando..." : "Guardar Comercio"}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Volver
+          </button>
+        </div>
+      </form>
+
+      <style jsx>{`
                 .form-container {
                     max-width: 600px;
                     margin: 0 auto;
@@ -236,8 +236,8 @@ const CrearComercio = ({ onCancel }) => {
                     border: 1px solid #c3e6cb;
                 }
             `}</style>
-        </div>
-    );
+    </div>
+  );
 };
 
 export default CrearComercio;
