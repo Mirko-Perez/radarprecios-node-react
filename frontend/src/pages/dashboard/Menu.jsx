@@ -20,6 +20,7 @@ const Menu = () => {
       navigate("/", { replace: true });
     } catch (error) {
       // Error handling sin console.log
+      console.log(error);
     }
   };
 
@@ -51,8 +52,8 @@ const Menu = () => {
 
         {/* Menu Cards */}
         <div className="space-y-4">
-        {/* Check-in: solo usuarios con permisoId = 4 = Promotores */}
-          {(user?.permissionId === 4 ) && (
+          {/* Check-in: solo usuarios con permisoId = 4 = Promotores */}
+          {user?.permissionId === 4 && (
             <button
               type="button"
               onClick={() => navigate("/check-in")}

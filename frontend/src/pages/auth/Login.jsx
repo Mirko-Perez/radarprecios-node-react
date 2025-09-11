@@ -14,7 +14,7 @@ const Login = () => {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      const redirectPath = user.permissionId === 4 ? "/menu" : "/menu";
+      const redirectPath = user.permissionId === 4 ? "/check-in" : "/menu";
       navigate(redirectPath, { replace: true });
     }
   }, [isAuthenticated, navigate, user]);

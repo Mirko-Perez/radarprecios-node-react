@@ -40,6 +40,8 @@ const Region = () => {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [observation, setObservation] = useState("");
+  const [description, setDescription] = useState("");
+
   const [quantity, setQuantity] = useState("");
   const [isSavingObservation, setIsSavingObservation] = useState(false);
   const [observationMessage, setObservationMessage] = useState({
@@ -248,6 +250,10 @@ const Region = () => {
         formData.append("photo", photo);
       }
 
+      if (description.trim()) {
+        formData.append("description", description);
+      }
+
       const response = await axios.post(`${API_URL}/prices`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -268,6 +274,7 @@ const Region = () => {
         setPrice("");
         setPhoto(null);
         setPhotoPreview("");
+        setDescription("");
         setSelectedProduct(null);
       } else {
         throw new Error(response.data?.message || "Error al guardar el precio");
@@ -309,7 +316,7 @@ const Region = () => {
   };
 
   return (
-    <div className="region-container">
+    <div className="min-h-screen bg-gray-100 py-10 px-4">
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -322,450 +329,243 @@ const Region = () => {
         pauseOnHover
         theme="light"
       />
-      <h2>Actualizar Precios</h2>
-      <div className="region-selector" style={{ marginBottom: "20px" }}>
-        <label>Región:</label>
-        <Select
-          options={regiones.map((r) => ({ value: r.id, label: r.nombre }))}
-          value={
-            selectedRegion
-              ? { value: selectedRegion.id, label: selectedRegion.nombre }
-              : null
-          }
-          onChange={(option) =>
-            setSelectedRegion(
-              option ? regiones.find((r) => r.id === option.value) : null,
-            )
-          }
-          placeholder="Selecciona una región..."
-          isDisabled={loading || isFromCheckIn}
-          isClearable={!isFromCheckIn}
-        />
-        {isFromCheckIn && selectedRegion && (
-          <div style={{ marginTop: "5px", color: "#666", fontSize: "0.9em" }}>
-            Este campo no se puede modificar desde esta vista
-          </div>
-        )}
-      </div>
+      <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-2xl p-6 space-y-8">
+        {/* Título */}
+        <h2 className="text-2xl font-bold text-gray-800">Actualizar Precios</h2>
 
-      <div className="store-selector" style={{ marginBottom: "20px" }}>
-        <label>Comercio:</label>
-        <Select
-          options={stores.map((s) => ({
-            value: s.store_id,
-            label: s.store_name,
-          }))}
-          value={selectedStore}
-          onChange={handleStoreChange}
-          placeholder={
-            loading ? "Cargando comercios..." : "Selecciona un comercio"
-          }
-          isDisabled={!selectedRegion || loading || isFromCheckIn}
-          isClearable={!isFromCheckIn}
-        />
-        {isFromCheckIn && selectedStore && (
-          <div style={{ marginTop: "5px", color: "#666", fontSize: "0.9em" }}>
-            Este campo no se puede modificar desde esta vista
-          </div>
-        )}
-      </div>
-
-      <div className="brand-selector" style={{ marginBottom: "20px" }}>
-        <label>Marca:</label>
-        <Select
-          options={brands.map((brand) => ({
-            value: brand.brand_id,
-            label: brand.brand_name,
-          }))}
-          value={selectedBrand}
-          onChange={handleBrandChange}
-          placeholder={
-            brandsLoading ? "Cargando marcas..." : "Selecciona una marca"
-          }
-          isDisabled={!selectedStore || brandsLoading}
-          isClearable
-        />
-      </div>
-
-      <div className="product-selector" style={{ marginBottom: "20px" }}>
-        <label htmlFor="product">Producto:</label>
-        <Select
-          id="product"
-          options={products.map((product) => ({
-            value: product.product_id,
-            label: product.product_name,
-            image: product.imagen
-              ? `${API_URL}${product.imagen}`
-              : "/default-product.png",
-          }))}
-          value={selectedProduct}
-          onChange={handleProductChange}
-          placeholder={
-            productsLoading ? "Cargando productos..." : "Selecciona un producto"
-          }
-          isDisabled={!selectedBrand || productsLoading}
-          isClearable
-          formatOptionLabel={(product) => (
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img
-                src={product.image}
-                alt={product.label}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "/default-product.png";
-                }}
-                style={{
-                  width: "30px",
-                  height: "30px",
-                  marginRight: "10px",
-                  objectFit: "contain",
-                }}
-              />
-              <span>{product.label}</span>
-            </div>
+        {/* Región */}
+        <div className="space-y-2">
+          <label className="font-semibold text-gray-700">Región:</label>
+          <Select
+            options={regiones.map((r) => ({ value: r.id, label: r.nombre }))}
+            value={
+              selectedRegion
+                ? { value: selectedRegion.id, label: selectedRegion.nombre }
+                : null
+            }
+            onChange={(option) =>
+              setSelectedRegion(
+                option ? regiones.find((r) => r.id === option.value) : null,
+              )
+            }
+            placeholder="Selecciona una región..."
+            isDisabled={loading || isFromCheckIn}
+            isClearable={!isFromCheckIn}
+          />
+          {isFromCheckIn && selectedRegion && (
+            <p className="text-sm text-gray-500">
+              Este campo no se puede modificar desde esta vista
+            </p>
           )}
-          styles={{
-            option: (provided, state) => ({
-              ...provided,
-              display: "flex",
-              alignItems: "center",
-              padding: "8px 12px",
-            }),
-            singleValue: (provided, state) => ({
-              ...provided,
-              display: "flex",
-              alignItems: "center",
-              height: "100%",
-            }),
-          }}
-        />
-      </div>
+        </div>
 
-      {selectedProduct && (
-        <>
-          <div className="price-input-container" style={{ margin: "20px 0" }}>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "15px" }}
-            >
-              {/* Cantidad (solo para Fritz) */}
-              {selectedBrand && selectedBrand.label === "Fritz" && (
+        {/* Comercio */}
+        <div className="space-y-2">
+          <label className="font-semibold text-gray-700">Comercio:</label>
+          <Select
+            options={stores.map((s) => ({
+              value: s.store_id,
+              label: s.store_name,
+            }))}
+            value={selectedStore}
+            onChange={handleStoreChange}
+            placeholder={
+              loading ? "Cargando comercios..." : "Selecciona un comercio"
+            }
+            isDisabled={!selectedRegion || loading || isFromCheckIn}
+            isClearable={!isFromCheckIn}
+          />
+          {isFromCheckIn && selectedStore && (
+            <p className="text-sm text-gray-500">
+              Este campo no se puede modificar desde esta vista
+            </p>
+          )}
+        </div>
+
+        {/* Marca */}
+        <div className="space-y-2">
+          <label className="font-semibold text-gray-700">Marca:</label>
+          <Select
+            options={brands.map((brand) => ({
+              value: brand.brand_id,
+              label: brand.brand_name,
+            }))}
+            value={selectedBrand}
+            onChange={handleBrandChange}
+            placeholder={
+              brandsLoading ? "Cargando marcas..." : "Selecciona una marca"
+            }
+            isDisabled={!selectedStore || brandsLoading}
+            isClearable
+          />
+        </div>
+
+        {/* Producto */}
+        <div className="space-y-2">
+          <label className="font-semibold text-gray-700">Producto:</label>
+          <Select
+            id="product"
+            options={products.map((product) => ({
+              value: product.product_id,
+              label: product.product_name,
+            }))}
+            value={selectedProduct}
+            onChange={handleProductChange}
+            placeholder={
+              productsLoading
+                ? "Cargando productos..."
+                : "Selecciona un producto"
+            }
+            isDisabled={!selectedBrand || productsLoading}
+            isClearable
+          />
+        </div>
+
+        {selectedProduct && (
+          <>
+            <div className="price-input-container" style={{ margin: "20px 0" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "15px",
+                }}
+              >
+                {/* Cantidad (solo para Fritz) */}
+                {selectedBrand?.label === "Fritz" && (
+                  <div className="flex items-center gap-3">
+                    <label className="w-24 font-semibold">Cantidad:</label>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      placeholder="Cantidad"
+                      min="1"
+                      step="1"
+                      className="w-40 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                    />
+                  </div>
+                )}
+
+                {/* Precio */}
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "10px" }}
                 >
                   <label style={{ fontWeight: "bold", minWidth: "80px" }}>
-                    Cantidad:
+                    Precio:
                   </label>
                   <input
                     type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    placeholder="Cantidad"
-                    min="1"
-                    step="1"
-                    style={{
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                      width: "150px",
-                    }}
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="Ingrese el precio"
+                    step="0.01"
+                    min="0"
+                    className="w-40 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring focus:ring-blue-200"
                   />
                 </div>
-              )}
 
-              {/* Precio */}
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <label style={{ fontWeight: "bold", minWidth: "80px" }}>
-                  Precio:
-                </label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Ingrese el precio"
-                  step="0.01"
-                  min="0"
-                  style={{
-                    padding: "8px",
-                    borderRadius: "4px",
-                    border: "1px solid #ccc",
-                    width: "150px",
-                  }}
-                />
-              </div>
-
-              {/* Botón de Tomar Foto */}
-              <div style={{ marginTop: "5px" }}>
-                <input
-                  type="file"
-                  id="photo-upload"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoChange}
-                  style={{ display: "none" }}
-                />
-                <label
-                  htmlFor="photo-upload"
-                  style={{
-                    backgroundColor: "#2196F3",
-                    color: "white",
-                    border: "none",
-                    padding: "8px 16px",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    display: "inline-block",
-                  }}
-                >
-                  {photo ? "Cambiar Foto" : "Tomar Foto"}
-                </label>
-              </div>
-
-              {/* Vista previa de la foto */}
-              {photoPreview && (
-                <div style={{ marginTop: "10px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                    }}
+                {/* Botón de Tomar Foto */}
+                <div>
+                  <input
+                    type="file"
+                    id="photo-upload"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="photo-upload"
+                    className="inline-block cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                   >
-                    <div
-                      style={{
-                        width: "100px",
-                        height: "100px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        overflow: "hidden",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <img
-                        src={photoPreview}
-                        alt="Vista previa"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                    </div>
+                    {photo ? "Cambiar Foto" : "Tomar Foto"}
+                  </label>
+                </div>
+
+                {/* Vista previa de la foto */}
+                {photoPreview && (
+                  <div className="flex flex-col items-start space-y-2">
+                    <img
+                      src={photoPreview}
+                      alt="Vista previa"
+                      className="h-24 w-24 rounded-md border border-gray-300 object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => {
                         setPhoto(null);
                         setPhotoPreview("");
                       }}
-                      style={{
-                        backgroundColor: "#f44336",
-                        color: "white",
-                        border: "none",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        alignSelf: "flex-start",
-                      }}
+                      className="rounded-md bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
                     >
                       Eliminar Foto
                     </button>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Botón de Guardar Precio */}
-              <div style={{ marginTop: "10px" }}>
-                <button
-                  onClick={handleSavePrice}
-                  disabled={
-                    !price ||
-                    isSaving ||
-                    (selectedBrand?.label === "Fritz" && !quantity)
-                  }
-                  style={{
-                    backgroundColor:
+                {/* Descripción del producto */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                    Descripción del Producto
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Este campo es <strong>opcional</strong>. Puedes agregar una
+                    descripción clara y precisa para identificar mejor el
+                    producto.
+                  </p>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ejemplo: Pack de 6 unidades de 500ml con tapa rosca"
+                    className="w-full min-h-[100px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                  />
+                </div>
+
+                {/* Botón de Guardar Precio */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleSavePrice}
+                    disabled={
                       !price ||
                       isSaving ||
                       (selectedBrand?.label === "Fritz" && !quantity)
-                        ? "#ccc"
-                        : "#4CAF50",
-                    color: "white",
-                    border: "none",
-                    padding: "10px 20px",
-                    borderRadius: "4px",
-                    cursor:
+                    }
+                    className={`w-52 rounded-md px-4 py-2 font-bold text-white ${
                       !price ||
                       isSaving ||
                       (selectedBrand?.label === "Fritz" && !quantity)
-                        ? "not-allowed"
-                        : "pointer",
-                    fontWeight: "bold",
-                    width: "200px",
-                    fontSize: "16px",
-                  }}
-                >
-                  {isSaving ? "Guardando..." : "Guardar Precio"}
-                </button>
+                        ? "cursor-not-allowed bg-gray-400"
+                        : "bg-green-600 hover:bg-green-700"
+                    }`}
+                  >
+                    {isSaving ? "Guardando..." : "Guardar Precio"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          {saveMessage.text && (
-            <div
-              style={{
-                marginTop: "10px",
-                color: saveMessage.isError ? "#f44336" : "#4CAF50",
-                fontWeight: "bold",
-              }}
-            >
-              {saveMessage.text}
-            </div>
-          )}
-        </>
-      )}
-
-      <div
-        className="observation-container"
-        style={{
-          margin: "30px 0",
-          padding: "20px",
-          border: "1px solid #e0e0e0",
-          borderRadius: "8px",
-        }}
-      >
-        <h3 style={{ marginBottom: "15px" }}>Agregar Observación</h3>
-        <textarea
-          value={observation}
-          onChange={(e) => {
-            setObservation(e.target.value);
-            setObservationMessage({ text: "", isError: false });
-          }}
-          placeholder="Escribe tu observación aquí..."
-          style={{
-            width: "100%",
-            minHeight: "100px",
-            padding: "10px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            marginBottom: "10px",
-            fontFamily: "Arial, sans-serif",
-            fontSize: "14px",
-          }}
-        />
-        <button
-          onClick={async () => {
-            if (!observation.trim()) {
-              setObservationMessage({
-                text: "Por favor ingresa una observación",
-                isError: true,
-              });
-              return;
-            }
-
-            try {
-              if (!user || !user.id) {
-                throw new Error(
-                  "No se pudo identificar al usuario. Por favor, inicia sesión nuevamente.",
-                );
-              }
-
-              setIsSavingObservation(true);
-              const userId = user.id;
-
-              const token = localStorage.getItem("token");
-              const response = await axios.post(
-                `${API_URL}/observations`,
-                {
-                  observation_string: observation,
-                  user_id: userId,
-                },
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                  },
-                },
-              );
-
-              if (response.data && response.data.success) {
-                setObservationMessage({
-                  text:
-                    response.data.message ||
-                    "Observación guardada correctamente",
-                  isError: false,
-                });
-                setObservation(""); // Limpiar el campo después de guardar
-              } else {
-                throw new Error(
-                  response.data?.message || "Error al guardar la observación",
-                );
-              }
-            } catch (error) {
-              console.error("Error al guardar la observación:", error);
-              console.log("Server error details:", error.response?.data);
-              let errorMessage = "Error al guardar la observación";
-              if (error.response) {
-                // Server responded with an error status code
-                errorMessage =
-                  error.response.data?.message ||
-                  error.response.data?.error ||
-                  "Error del servidor";
-              } else if (error.request) {
-                // Request was made but no response was received
-                errorMessage =
-                  "No se recibió respuesta del servidor. Verifica tu conexión a internet.";
-              } else {
-                // Something happened in setting up the request that triggered an Error
-                errorMessage = "Error al configurar la solicitud";
-              }
-              setObservationMessage({
-                text: errorMessage,
-                isError: true,
-              });
-            } finally {
-              setIsSavingObservation(false);
-            }
-          }}
-          disabled={!observation.trim() || isSavingObservation}
-          style={{
-            backgroundColor:
-              !observation.trim() || isSavingObservation
-                ? "#cccccc"
-                : "#4CAF50",
-            color: "white",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "4px",
-            cursor:
-              !observation.trim() || isSavingObservation
-                ? "not-allowed"
-                : "pointer",
-            fontWeight: "bold",
-            fontSize: "14px",
-          }}
-        >
-          {isSavingObservation ? "Guardando..." : "Guardar Observación"}
-        </button>
-        {observationMessage.text && (
-          <div
-            style={{
-              marginTop: "10px",
-              color: observationMessage.isError ? "#f44336" : "#4CAF50",
-              fontWeight: "bold",
-            }}
-          >
-            {observationMessage.text}
-          </div>
+            {saveMessage.text && (
+              <div
+                className={`font-bold ${
+                  saveMessage.isError ? "text-red-600" : "text-green-600"
+                }`}
+              >
+                {saveMessage.text}
+              </div>
+            )}
+          </>
         )}
-      </div>
 
-      <button
-        className="back-btn"
-        onClick={() => navigate("/check-in")}
-        style={{ marginTop: "20px" }}
-      >
-        Volver atrás
-      </button>
+        {/* Botón de volver atrás */}
+        <button
+          type="button"
+          onClick={() => navigate("/check-in")}
+          className="mt-6 w-full rounded-md bg-gray-600 px-4 py-2 font-semibold text-white hover:bg-gray-700"
+        >
+          Volver Atrás
+        </button>
+      </div>
     </div>
   );
 };
