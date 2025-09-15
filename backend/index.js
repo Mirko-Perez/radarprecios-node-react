@@ -35,7 +35,7 @@ app.use('/api/prices', upload.single('photo'), pricesRoutes);
 import authRoutes from './src/routes/authRoutes.js';
 app.use('/api/auth', authRoutes);
 
-import storesRoutes from './src/routes/storesRoutes.js';
+import storesRoutes from './src/routes/stores.routes.js';
 app.use('/api/stores', storesRoutes);
 
 import brandsRoutes from './src/routes/brandsRoutes.js';

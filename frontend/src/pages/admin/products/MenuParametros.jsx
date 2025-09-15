@@ -23,7 +23,7 @@ const MenuParametros = () => {
       let endpoint = "";
       switch (type) {
         case "comercio":
-          endpoint = "/stores"; // Ajusta según tu API
+          endpoint = "/stores";
           break;
         case "marca":
           endpoint = "/brands";
@@ -136,7 +136,6 @@ const MenuParametros = () => {
         case "comercio":
           endpoint = `/stores/${item.store_id}/status`;
           idField = "store_id";
-          statusField = "is_active";
           break;
         case "marca":
           endpoint = `/brands/${item.brand_id}/status`;
@@ -180,17 +179,27 @@ const MenuParametros = () => {
         >
           ✏️
         </button>
+
+        
+   {/* Botón activar/desactivar - solo para marca y producto */}
+      {type !== "comercio" && (
         <button
           onClick={() => handleToggleStatus(item, type)}
           className={`px-2 py-1 text-white text-xs rounded transition ${
-            (type === 'producto' ? item.is_valid : item.is_active)
-              ? "bg-orange-500 hover:bg-orange-600" 
+            (type === "producto" ? item.is_valid : item.is_active)
+              ? "bg-orange-500 hover:bg-orange-600"
               : "bg-green-500 hover:bg-green-600"
           }`}
-          title={`${(type === 'producto' ? item.is_valid : item.is_active) ? 'Desactivar' : 'Activar'}`}
+          title={`${
+            (type === "producto" ? item.is_valid : item.is_active)
+              ? "Desactivar"
+              : "Activar"
+          }`}
         >
-          {(type === 'producto' ? item.is_valid : item.is_active) ? '🔄' : '✅'}
+          {(type === "producto" ? item.is_valid : item.is_active) ? "🔄" : "✅"}
         </button>
+      )}
+      
         <button
           onClick={() => handleDelete(item, type)}
           className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"
@@ -205,19 +214,11 @@ const MenuParametros = () => {
       case "comercio":
         return [
           { key: 'store_name', title: 'Nombre' },
+          { key: 'region_name', title: 'Region' ,  render: (value) => value || 'N/A' },
+          { key: 'segmento', title: 'Segmento' },
+          { key: 'ciudad', title: 'Ciudad' },
           { key: 'address', title: 'Dirección' },
-          { key: 'phone', title: 'Teléfono' },
-          { 
-            key: 'is_active', 
-            title: 'Estado',
-            render: (isActive) => (
-              <span className={`px-2 py-1 rounded text-white text-xs ${
-                isActive ? "bg-green-500" : "bg-red-500"
-              }`}>
-                {isActive ? "Activo" : "Inactivo"}
-              </span>
-            )
-          },
+        
           { 
             key: 'actions', 
             title: 'Acciones',
