@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
+import { FiUserPlus, FiUsers } from 'react-icons/fi';
 import CreacionUsuario from './CreacionUsuario';
 import ModificarUsuario from './ModificarUsuario';
-import '../../dashboard/Menu.css';
 
 const UserManagement = () => {
     const [view, setView] = useState(''); // '' | 'crear' | 'modificar'
@@ -11,22 +10,44 @@ const UserManagement = () => {
     const handleBack = () => setView('');
 
     return (
-        <div style={{ width: '100%', maxWidth: '100%', padding: 0, margin: 0, background: 'none' }}>
+        <div className="w-full">
             {view === '' && (
-                <div className="menu-buttons" style={{ marginBottom: 32, display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
                     <button
-                        className="menu-btn"
-                        style={{ maxWidth: 260, width: '100%' }}
                         onClick={() => setView('crear')}
+                        className="w-full sm:w-auto max-w-xs bg-white hover:bg-green-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
                     >
-                        Crear Nuevo Usuario
+                        <div className="flex items-center justify-center gap-4">
+                            <div className="bg-green-100 group-hover:bg-green-200 rounded-full p-3 transition-colors duration-300">
+                                <FiUserPlus className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-lg font-semibold text-gray-800">
+                                    Crear Nuevo Usuario
+                                </h3>
+                                <p className="text-gray-600 text-sm">
+                                    Agregar usuario al sistema
+                                </p>
+                            </div>
+                        </div>
                     </button>
                     <button
-                        className="menu-btn"
-                        style={{ maxWidth: 260, width: '100%' }}
                         onClick={() => setView('modificar')}
+                        className="w-full sm:w-auto max-w-xs bg-white hover:bg-blue-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
                     >
-                        Gestionar Usuarios Existentes
+                        <div className="flex items-center justify-center gap-4">
+                            <div className="bg-blue-100 group-hover:bg-blue-200 rounded-full p-3 transition-colors duration-300">
+                                <FiUsers className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-lg font-semibold text-gray-800">
+                                    Gestionar Usuarios Existentes
+                                </h3>
+                                <p className="text-gray-600 text-sm">
+                                    Modificar usuarios del sistema
+                                </p>
+                            </div>
+                        </div>
                     </button>
                 </div>
             )}

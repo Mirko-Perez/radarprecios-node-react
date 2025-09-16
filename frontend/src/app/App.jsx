@@ -58,6 +58,7 @@ import OrienteProducto from "../pages/regions/oriente/OrienteProducto";
 import OrienteVerTodo from "../pages/regions/oriente/OrienteVerTodo";
 import CheckIn from "../pages/shared/CheckIn";
 import Region from "../pages/shared/Region";
+import FotoAnaquel from "../pages/shared/FotoAnaquel";
 
 function App() {
   return (
@@ -511,6 +512,15 @@ function App() {
                 element={
                   <PrivateRoute requireAdmin={true}>
                     <CrearProducto />
+                  </PrivateRoute>
+                }
+              />
+
+              <Route
+                path="/foto-anaquel"
+                element={
+                  <PrivateRoute>
+                    <FotoAnaquel />
                   </PrivateRoute>
                 }
               />

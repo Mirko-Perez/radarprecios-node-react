@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../contexts/AuthContext';
-import '../../dashboard/Menu.css';
 
 const CrearMarca = ({ onCancel }) => {
     const [nombre, setNombre] = useState('');

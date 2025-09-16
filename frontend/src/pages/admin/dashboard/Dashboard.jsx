@@ -12,7 +12,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../contexts/AuthContext";
-import "./Dashboard.css";
 import { FaMapMarkerAlt } from "react-icons/fa";
 
 // Register Chart.js components
@@ -339,74 +338,62 @@ const Dashboard = () => {
 
   // Fetch region averages with product and group details
   const fetchRegionAverages = async (regionId = "all") => {
-    // Si es 'all', obtener y combinar los promedios de todas las regiones
     if (!regionId) {
       setRegionAverages([]);
       return;
     }
-    if (regionId === "all" && Array.isArray(regions) && regions.length > 0) {
-      try {
-        let allProducts = [];
-        for (const region of regions) {
-          const endpoint = `${API_URL}/products/region/${String(region.region_id)}`;
-          const productsResponse = await axios.get(endpoint);
-          let products = productsResponse.data.data || [];
-          // Agregar el nombre de la región a cada producto
-          products = products.map((item) => ({
-            ...item,
-            region: region.region_name,
-            region_id: region.region_id,
-            grupo: item.group_name || "Sin grupo",
-            producto: item.product_name || "Sin nombre",
-            precio_promedio: parseFloat(item.average_price) || 0,
-            _original: item,
-          }));
-          allProducts = allProducts.concat(products);
-        }
-        setRegionAverages(allProducts);
-      } catch (error) {
-        console.error("Error fetching all region averages:", error);
-        setRegionAverages([]);
-      }
-      return;
-    }
-    // Normal para una sola región
+    
     try {
-      // Get all regions first to ensure we have the mapping
-      const regionsResponse = await axios.get(`${API_URL}/regions`);
-      const allRegions = regionsResponse.data.success
-        ? regionsResponse.data.data
-        : regionsResponse.data;
-      if (allRegions.length === 0) {
-        console.warn("No regions found");
-        setRegionAverages([]);
-        return;
+      let allData = [];
+      
+      if (regionId === "all" && Array.isArray(regions) && regions.length > 0) {
+        // For all regions, get overview data from each region
+        for (const region of regions) {
+          try {
+            const response = await axios.get(`${API_URL}/overview/${region.region_id}`);
+            const data = response.data.success ? response.data.data : response.data;
+            
+            if (Array.isArray(data)) {
+              // Add region info to each item
+              const dataWithRegion = data.map(item => ({
+                ...item,
+                region_id: region.region_id,
+                region_name: region.region_name
+              }));
+              allData = allData.concat(dataWithRegion);
+            }
+          } catch (error) {
+            console.error(`Error fetching data for region ${region.region_id}:`, error);
+          }
+        }
+      } else {
+        // For specific region, use overview endpoint
+        const response = await axios.get(`${API_URL}/overview/${regionId}`);
+        const data = response.data.success ? response.data.data : response.data;
+        
+        if (Array.isArray(data)) {
+          const selectedRegionData = regions.find(r => r.region_id == regionId);
+          allData = data.map(item => ({
+            ...item,
+            region_id: regionId,
+            region_name: selectedRegionData?.region_name || "Sin región"
+          }));
+        }
       }
-      // Get all products with their prices for the selected region(s)
-      const endpoint = `${API_URL}/products/region/${String(regionId)}`;
-      const productsResponse = await axios.get(endpoint);
-      const products = productsResponse.data.success
-        ? productsResponse.data.data
-        : productsResponse.data;
-      // Process the products into the format expected by the table
-      const processedData = products.map((item) => {
-        // Find the region for this product
-        const productRegion = allRegions.find(
-          (r) => r.region_id == item.region_id,
-        );
-        const regionName = productRegion
-          ? productRegion.region_name
-          : "Sin región";
+
+      // Process the data to create region averages
+      const processedData = allData.map(item => {
         return {
-          ...item,
-          region: regionName,
+          region: item.region_name || "Sin región",
           region_id: item.region_id,
           grupo: item.group_name || "Sin grupo",
           producto: item.product_name || "Sin nombre",
-          precio_promedio: parseFloat(item.average_price) || 0,
-          _original: item, // Keep original for debugging
+          precio_promedio: parseFloat(item.price_amount) || 0,
+          brand_name: item.brand_name || "Sin marca",
+          store_name: item.store_name || "Sin tienda"
         };
       });
+      
       setRegionAverages(processedData);
     } catch (error) {
       console.error("Error fetching region averages:", error);
@@ -1374,65 +1361,38 @@ const Dashboard = () => {
   }, [regionAverages, regions, selectedRegion, selectedGroup, searchTerm]);
 
   if (loading) {
-    return <div className="loading">Cargando...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-gray-600">Cargando...</div>
+      </div>
+    );
   }
 
   // Function to determine CSS class based on percentage value
   const getPercentageClass = (value) => {
-    if (value > 0) return "positive";
-    if (value < 0) return "negative";
-    return "neutral";
+    if (value > 0) return "text-red-600";
+    if (value < 0) return "text-green-600";
+    return "text-blue-600";
   };
 
-  // State tracking for debugging purposes (commented out)
-  // {
-  //   regions,
-  //   selectedRegion,
-  //   groups,
-  //   selectedGroup,
-  //   productData: productData?.length,
-  //   filteredData: filteredData?.length,
-  //   regionAverages: regionAverages?.length,
-  //   filteredRegionAverages: filteredRegionAverages?.length
-  // }
-
   return (
-    <div className="dashboard-container">
+    <div className="p-4 max-w-7xl mx-auto font-sans w-full">
       {/* Filtros */}
-      <div className="dashboard-filters">
-        <div className="filter-group region-buttons">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              flexWrap: "wrap",
-              minHeight: 40,
-            }}
-          >
-            <span
-              style={{
-                fontWeight: 500,
-                fontSize: "1.08em",
-                display: "flex",
-                alignItems: "center",
-                minWidth: 80,
-              }}
-            >
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-4 flex-wrap min-h-10">
+            <span className="font-medium text-lg flex items-center min-w-20 text-gray-700">
               Región
-              <FaMapMarkerAlt
-                style={{
-                  marginLeft: 6,
-                  fontSize: 18,
-                  color: "#1976d2",
-                  verticalAlign: "middle",
-                }}
-              />
+              <FaMapMarkerAlt className="ml-2 text-lg text-blue-600" />
             </span>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className={`region-btn${selectedRegion === "all" ? " selected" : ""}`}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  selectedRegion === "all"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-gray-50 text-blue-600 border-gray-300 hover:bg-blue-50"
+                } border-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                 onClick={() =>
                   handleRegionChange({
                     target: { value: "all" },
@@ -1448,7 +1408,11 @@ const Dashboard = () => {
                   <button
                     key={region.region_id}
                     type="button"
-                    className={`region-btn${selectedRegion === region.region_id ? " selected" : ""}`}
+                    className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      selectedRegion === region.region_id
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-gray-50 text-blue-600 border-gray-300 hover:bg-blue-50"
+                    } border-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                     onClick={() =>
                       handleRegionChange({
                         target: { value: region.region_id },
@@ -1463,35 +1427,41 @@ const Dashboard = () => {
             </div>
           </div>
           {loading && (
-            <span className="loading-indicator">Cargando regiones...</span>
+            <span className="text-sm text-gray-500 mt-2">Cargando regiones...</span>
           )}
           {!loading && regions.length === 0 && (
-            <span className="error-message">No hay regiones disponibles</span>
+            <span className="text-sm text-red-500 mt-2">No hay regiones disponibles</span>
           )}
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        <div className="dashboard-grid-row">
-          {/* Grid Item 1 - Precios Promedios por Grupo */}
-          <div className="dashboard-grid-item dashboard-table">
-            <h3>Precios Promedios por Grupo</h3>
-            <div
-              className="table-responsive"
-              style={{ flex: 1, overflow: "auto", maxHeight: 350 }}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>Grupo</th>
-                    <th>Producto</th>
-                    <th>Precio Promedio</th>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Grid Item 1 - Precios Promedios por Grupo */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-shadow duration-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+            Precios Promedios por Grupo
+          </h3>
+          <div className="flex-1 overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto max-h-80">
+              <table className="w-full min-w-full">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Grupo
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Producto
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Precio Promedio
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {productGroupAverages.length === 0 ? (
                     <tr>
-                      <td colSpan="3" className="no-data">
+                      <td colSpan="3" className="px-4 py-8 text-center text-gray-500 italic">
                         {loading
                           ? "Cargando datos..."
                           : "No se encontraron precios promedios con los filtros seleccionados"}
@@ -1509,13 +1479,15 @@ const Dashboard = () => {
                       .map((item, index) => (
                         <tr
                           key={`item-${index}`}
-                          style={{
-                            borderLeft: `4px solid ${index % 2 === 0 ? "#f0f7ff" : "#e6f2ff"}`,
-                          }}
+                          className="hover:bg-blue-50 transition-colors duration-150"
                         >
-                          <td>{item.group_name || "Sin grupo"}</td>
-                          <td>{item.product_name || "Sin nombre"}</td>
-                          <td style={{ textAlign: "right" }}>
+                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                            {item.group_name || "Sin grupo"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {item.product_name || "Sin nombre"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono font-semibold">
                             {item.average_price > 0
                               ? `Bs.S ${parseFloat(item.average_price).toFixed(2)}`
                               : "N/A"}
@@ -1527,23 +1499,31 @@ const Dashboard = () => {
               </table>
             </div>
           </div>
+        </div>
 
-          {/* Grid Item 2 - Precios Promedios por Región */}
-          <div className="dashboard-grid-item dashboard-table">
-            <h3>Precios Promedios por Región</h3>
-            <div
-              className="table-responsive"
-              style={{ flex: 1, overflow: "auto", maxHeight: 350 }}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>Región</th>
-                    <th>Grupo</th>
-                    <th>Precio Promedio</th>
+        {/* Grid Item 2 - Precios Promedios por Región */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-shadow duration-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+            Precios Promedios por Región
+          </h3>
+          <div className="flex-1 overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto max-h-80">
+              <table className="w-full min-w-full">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Región
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Grupo
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Precio Promedio
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {filteredGroupedPrices.length > 0 ? (
                     filteredGroupedPrices.map((group, index) => {
                       const totalPrice = group.productos.reduce(
@@ -1558,10 +1538,15 @@ const Dashboard = () => {
                       return (
                         <tr
                           key={`${group.region_id}-${group.group_id}-${index}`}
+                          className="hover:bg-green-50 transition-colors duration-150"
                         >
-                          <td>{group.region || "Sin región"}</td>
-                          <td>{group.grupo || "Sin grupo"}</td>
-                          <td style={{ textAlign: "right" }}>
+                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                            {group.region || "Sin región"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {group.grupo || "Sin grupo"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono font-semibold">
                             {averagePrice > 0
                               ? formatPrice(averagePrice)
                               : "N/A"}
@@ -1571,7 +1556,7 @@ const Dashboard = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="3" className="no-data">
+                      <td colSpan="3" className="px-4 py-8 text-center text-gray-500 italic">
                         No se encontraron precios promedios con los filtros
                         seleccionados
                       </td>
@@ -1581,55 +1566,56 @@ const Dashboard = () => {
               </table>
             </div>
           </div>
+        </div>
 
-          {/* Brand Statistics Table - Unificada visualmente y sin columna Segmento */}
-          <div className="dashboard-grid-item dashboard-table">
-            <h3>Estadísticas de Marcas</h3>
-            <div
-              className="table-responsive"
-              style={{ flex: 1, overflow: "auto", maxHeight: 350 }}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>Región</th>
-                    <th>Marca</th>
-                    <th>Precio Promedio</th>
-                    <th>N° Productos</th>
-                    <th>% vs Promedio</th>
+        {/* Brand Statistics Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-shadow duration-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+            Estadísticas de Marcas
+          </h3>
+          <div className="flex-1 overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto max-h-80">
+              <table className="w-full min-w-full">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Marca
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      Precio Promedio
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      N° Productos
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
+                      % vs Promedio
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {brandStats.length > 0 ? (
                     brandStats.map((brand, index) => (
                       <tr
-                        key={`${brand.region || "region"}-${brand.brand}-${index}`}
+                        key={`${brand.brand}-${index}`}
+                        className="hover:bg-purple-50 transition-colors duration-150"
                       >
-                        <td>{brand.region || "Sin región"}</td>
-                        <td>{brand.brand || "Sin marca"}</td>
-                        <td
-                          style={{
-                            textAlign: "right",
-                            fontFamily: "monospace",
-                          }}
-                        >
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {brand.brand || "Sin marca"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono font-semibold">
                           {formatPrice(brand.average_price)}
                         </td>
-                        <td style={{ textAlign: "right" }}>
+                        <td className="px-4 py-3 text-sm text-gray-700 text-right">
                           {brand.product_count || 0}
                         </td>
-                        <td
-                          style={{
-                            textAlign: "right",
-                            color:
-                              brand.vs_average_percentage > 0
-                                ? "#d32f2f"
-                                : brand.vs_average_percentage < 0
-                                  ? "#388e3c"
-                                  : "#1976d2",
-                            fontFamily: "monospace",
-                          }}
-                        >
+                        <td className={`px-4 py-3 text-sm text-right font-mono font-semibold ${
+                          brand.vs_average_percentage > 0
+                            ? "text-red-600"
+                            : brand.vs_average_percentage < 0
+                              ? "text-green-600"
+                              : "text-blue-600"
+                        }`}>
                           {brand.vs_average_percentage > 0 ? "+" : ""}
                           {brand.vs_average_percentage}%
                         </td>
@@ -1637,7 +1623,7 @@ const Dashboard = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="no-data">
+                      <td colSpan="4" className="px-4 py-8 text-center text-gray-500 italic">
                         {loading
                           ? "Cargando estadísticas..."
                           : "No hay datos disponibles"}
@@ -1648,106 +1634,125 @@ const Dashboard = () => {
               </table>
             </div>
           </div>
+        </div>
 
-          {/* Grid Item 4 - Comparativa de Precios por Marca */}
-          <div className="dashboard-grid-item">
-            <h3>Comparativa de Precios por Marca</h3>
-            <div
-              style={{
-                border: "1px solid #e0e0e0",
-                borderRadius: "4px",
-                backgroundColor: "#fff",
-                padding: "20px",
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "400px",
-              }}
-            >
-              {topAndBottomBrands.length > 0 ? (
-                <div style={{ width: "100%", height: "100%" }}>
-                  <Bar
-                    data={{
-                      labels: topAndBottomBrands.map(
-                        (brand) => brand.brand || "Sin nombre",
-                      ),
-                      datasets: [
-                        {
-                          label: "Precio Promedio",
-                          data: topAndBottomBrands.map(
-                            (brand) => brand.average_price || 0,
-                          ),
-                          backgroundColor: [
-                            "rgba(255, 99, 132, 0.6)",
-                            "rgba(54, 162, 235, 0.6)",
-                            "rgba(255, 206, 86, 0.6)",
-                            "rgba(75, 192, 192, 0.6)",
-                            "rgba(153, 102, 255, 0.6)",
-                          ],
-                          borderColor: [
-                            "rgba(255, 99, 132, 1)",
-                            "rgba(54, 162, 235, 1)",
-                            "rgba(255, 206, 86, 1)",
-                            "rgba(75, 192, 192, 1)",
-                            "rgba(153, 102, 255, 1)",
-                          ],
-                          borderWidth: 1,
+        {/* Grid Item 4 - Comparativa de Precios por Marca */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-shadow duration-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <div className="w-2 h-2 bg-orange-500 rounded-full mr-3"></div>
+            Comparativa de Precios por Marca
+          </h3>
+          <div className="flex-1 flex items-center justify-center min-h-96 bg-gray-50 rounded-lg">
+            {topAndBottomBrands.length > 0 ? (
+              <div className="w-full h-full p-4">
+                <Bar
+                  data={{
+                    labels: topAndBottomBrands.map(
+                      (brand) => brand.brand || "Sin nombre",
+                    ),
+                    datasets: [
+                      {
+                        label: "Precio Promedio",
+                        data: topAndBottomBrands.map(
+                          (brand) => brand.average_price || 0,
+                        ),
+                        backgroundColor: [
+                          "rgba(255, 99, 132, 0.6)",
+                          "rgba(54, 162, 235, 0.6)",
+                          "rgba(255, 206, 86, 0.6)",
+                          "rgba(75, 192, 192, 0.6)",
+                          "rgba(153, 102, 255, 0.6)",
+                        ],
+                        borderColor: [
+                          "rgba(255, 99, 132, 1)",
+                          "rgba(54, 162, 235, 1)",
+                          "rgba(255, 206, 86, 1)",
+                          "rgba(75, 192, 192, 1)",
+                          "rgba(153, 102, 255, 1)",
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                      tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        borderWidth: 1,
+                        callbacks: {
+                          label: (context) => {
+                            const brand =
+                              topAndBottomBrands[context.dataIndex];
+                            return [
+                              `Precio: ${formatPrice(brand.average_price)}`,
+                              `Productos: ${brand.product_count || 0}`,
+                              `Segmento: ${brand.price_segment || "N/A"}`,
+                              `vs Promedio: ${brand.vs_average_percentage > 0 ? "+" : ""}${brand.vs_average_percentage || 0}%`,
+                            ];
+                          },
                         },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: {
+                          color: 'rgba(0, 0, 0, 0.1)',
+                        },
+                        title: {
+                          display: true,
+                          text: "Precio Promedio",
+                          font: {
+                            size: 12,
+                            weight: 'bold',
+                          },
+                        },
+                        ticks: {
+                          callback: (value) => `$${value}`,
+                          font: {
+                            size: 11,
+                          },
+                        },
+                      },
+                      x: {
+                        grid: {
                           display: false,
                         },
-                        tooltip: {
-                          callbacks: {
-                            label: (context) => {
-                              const brand =
-                                topAndBottomBrands[context.dataIndex];
-                              return [
-                                `Precio: ${formatPrice(brand.average_price)}`,
-                                `Productos: ${brand.product_count || 0}`,
-                                `Segmento: ${brand.price_segment || "N/A"}`,
-                                `vs Promedio: ${brand.vs_average_percentage > 0 ? "+" : ""}${brand.vs_average_percentage || 0}%`,
-                              ];
-                            },
+                        title: {
+                          display: true,
+                          text: "Marcas",
+                          font: {
+                            size: 12,
+                            weight: 'bold',
                           },
+                        },
+                        ticks: {
+                          font: {
+                            size: 11,
+                          },
+                          maxRotation: 45,
                         },
                       },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          title: {
-                            display: true,
-                            text: "Precio Promedio",
-                          },
-                          ticks: {
-                            callback: (value) => `$${value}`,
-                          },
-                        },
-                        x: {
-                          title: {
-                            display: true,
-                            text: "Marcas",
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              ) : (
-                <div style={{ textAlign: "center", color: "#666" }}>
-                  {loading
-                    ? "Cargando datos del gráfico..."
-                    : "No hay suficientes datos para mostrar el gráfico"}
-                </div>
-              )}
-            </div>
+                    },
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-center text-gray-500">
+                {loading
+                  ? "Cargando datos del gráfico..."
+                  : "No hay suficientes datos para mostrar el gráfico"}
+              </div>
+            )}
           </div>
         </div>
       </div>

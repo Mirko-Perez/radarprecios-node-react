@@ -460,7 +460,7 @@ export const addPrice = async (req, res) => {
   let photoPath = null;
 
   try {
-    const { product_id, store_id, price_amount, quantity } = req.body;
+    const { product_id, store_id, price_amount, quantity, description } = req.body;
     const currency_id = 1;
 
     console.log('Request body:', req.body);
@@ -509,7 +509,15 @@ export const addPrice = async (req, res) => {
 
     await client.query('BEGIN');
 
-    // 1. Set all existing prices for this product/store to is_current = false
+    // 1. Update product description if provided
+    if (description && description.trim()) {
+      await client.query(
+        'UPDATE productos SET description = $1 WHERE product_id = $2',
+        [description.trim(), product_id]
+      );
+    }
+
+    // 2. Set all existing prices for this product/store to is_current = false
     await client.query(
       `UPDATE precios 
        SET is_current = false 
@@ -520,7 +528,7 @@ export const addPrice = async (req, res) => {
       [product_id, store_id, currency_id]
     );
 
-    // 2. Insert the new price with is_current = true
+    // 3. Insert the new price with is_current = true
     const result = await client.query(
       `INSERT INTO precios (
         product_id, 
@@ -571,6 +579,17 @@ export const addPrice = async (req, res) => {
         error: error.message,
         code: error.code,
         solution: 'Ejecuta en tu base de datos: DROP INDEX IF EXISTS precios_product_id_store_id_currency_id_is_current_idx;'
+      });
+    }
+
+    // Check if this is a column doesn't exist error for description in productos table
+    if (error.code === '42703' && error.message.includes('description')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error: La columna "description" no existe en la tabla productos. Necesitas agregar esta columna a la base de datos.',
+        error: error.message,
+        code: error.code,
+        solution: 'Ejecuta en tu base de datos: ALTER TABLE productos ADD COLUMN description TEXT;'
       });
     }
 

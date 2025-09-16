@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../contexts/AuthContext';
-import { FaCheck, FaUndo } from 'react-icons/fa';
-import '../../dashboard/Menu.css';
+import { FaCheck, FaUndo, FaUser, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
 
 const ObservationsList = () => {
     const [observations, setObservations] = useState([]);
@@ -63,13 +62,13 @@ const ObservationsList = () => {
                     return;
                 }
 
-
-                const response = await axios.get(`${API_URL}/observations`, {
+                // Use the new endpoint with detailed information
+                const response = await axios.get(`${API_URL}/observations/details`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    timeout: 10000 // 10 seconds timeout
+                    timeout: 10000
                 });
 
                 // Handle the response based on its structure
@@ -83,7 +82,6 @@ const ObservationsList = () => {
                         setError(errorMsg);
                     }
                 } else if (Array.isArray(responseData)) {
-                    // Fallback in case the backend changes its response format
                     setObservations(responseData);
                 } else {
                     const errorMsg = 'Formato de respuesta inesperado del servidor';
@@ -96,8 +94,6 @@ const ObservationsList = () => {
                 let errorMessage = 'Error al cargar las observaciones. Inténtalo de nuevo más tarde.';
 
                 if (err.response) {
-                    // The request was made and the server responded with a status code
-                    // that falls out of the range of 2xx
                     console.error('Response data:', err.response.data);
                     console.error('Response status:', err.response.status);
                     console.error('Response headers:', err.response.headers);
@@ -112,11 +108,9 @@ const ObservationsList = () => {
                         errorMessage = `Error del servidor: ${err.response.data.message}`;
                     }
                 } else if (err.request) {
-                    // The request was made but no response was received
                     console.error('No se recibió respuesta del servidor:', err.request);
                     errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
                 } else {
-                    // Something happened in setting up the request that triggered an Error
                     console.error('Error al configurar la solicitud:', err.message);
                     errorMessage = `Error: ${err.message}`;
                 }
@@ -131,167 +125,186 @@ const ObservationsList = () => {
     }, [navigate]);
 
     if (loading) {
-        return <div className="loading">Cargando observaciones...</div>;
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-lg text-gray-600">Cargando observaciones...</div>
+            </div>
+        );
     }
 
-    const tableStyle = {
-        width: '100%',
-        tableLayout: 'fixed',
-        borderCollapse: 'collapse',
-        marginTop: '20px',
-        fontSize: '14px'
-    };
-
-    const thStyle = {
-        backgroundColor: '#f1f3f5',
-        padding: '12px',
-        textAlign: 'left',
-        borderBottom: '2px solid #dee2e6',
-        fontWeight: '600',
-        color: '#495057'
-    };
-
-    const tdStyle = {
-        padding: '12px',
-        borderBottom: '1px solid #e9ecef',
-        wordWrap: 'break-word',
-        verticalAlign: 'middle'
-    };
-
-    const actionButtonStyle = {
-        padding: '6px 12px',
-        borderRadius: '4px',
-        border: 'none',
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        fontSize: '13px',
-        transition: 'all 0.2s',
-        marginRight: '8px'
-    };
-
-    const completeButtonStyle = {
-        ...actionButtonStyle,
-        backgroundColor: '#28a745',
-        color: 'white',
-        '&:hover': {
-            backgroundColor: '#218838',
-            transform: 'translateY(-1px)'
-        }
-    };
-
-    const undoButtonStyle = {
-        ...actionButtonStyle,
-        backgroundColor: '#6c757d',
-        color: 'white',
-        '&:hover': {
-            backgroundColor: '#5a6268',
-            transform: 'translateY(-1px)'
-        }
-    };
-
-    const containerStyle = {
-        width: '95%',
-        margin: '0 auto',
-        overflowX: 'auto',
-        padding: '20px',
-        backgroundColor: '#fff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    };
-
     return (
-        <div className="container mt-4" style={containerStyle}>
+        <div className="p-6 max-w-7xl mx-auto">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h1 className="text-2xl font-bold text-gray-900">Lista de Observaciones</h1>
+                    <p className="text-gray-600 mt-1">Gestiona las observaciones realizadas por los usuarios</p>
+                </div>
 
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            <div className="table-responsive">
-                {observations && observations.length > 0 ? (
-                    <table className="table table-striped" style={tableStyle}>
-                        <colgroup>
-                            <col style={{ width: '5%' }} />
-                            <col style={{ width: '35%' }} />
-                            <col style={{ width: '10%' }} />
-                            <col style={{ width: '20%' }} />
-                            <col style={{ width: '15%' }} />
-                            <col style={{ width: '15%' }} />
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th style={thStyle}>ID</th>
-                                <th style={thStyle}>Observación</th>
-                                <th style={thStyle}>Usuario ID</th>
-                                <th style={thStyle}>Fecha</th>
-                                <th style={thStyle}>Estado</th>
-                                <th style={thStyle}>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {observations.map(obs => (
-                                <tr key={obs.observation_id}>
-                                    <td style={tdStyle}>{obs.observation_id}</td>
-                                    <td style={tdStyle}>{obs.observation_string}</td>
-                                    <td style={tdStyle}>{obs.user_id}</td>
-                                    <td style={tdStyle}>
-                                        {new Date(obs.created_at).toLocaleString('es-CL', {
-                                            day: '2-digit',
-                                            month: '2-digit',
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <span style={{
-                                            padding: '6px 12px',
-                                            borderRadius: '20px',
-                                            backgroundColor: obs.is_active ? '#d4edda' : '#f8d7da',
-                                            color: obs.is_active ? '#155724' : '#721c24',
-                                            fontWeight: '500',
-                                            display: 'inline-block',
-                                            minWidth: '80px',
-                                            textAlign: 'center'
-                                        }}>
-                                            {obs.is_active ? 'Pendiente' : 'Realizado'}
-                                        </span>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        {obs.is_active ? (
-                                            <button
-                                                onClick={() => updateObservationStatus(obs.observation_id, false)}
-                                                disabled={updatingId === obs.observation_id}
-                                                style={{
-                                                    ...completeButtonStyle,
-                                                    opacity: updatingId === obs.observation_id ? 0.7 : 1,
-                                                    cursor: updatingId === obs.observation_id ? 'not-allowed' : 'pointer'
-                                                }}
-                                                title="Marcar como realizado"
-                                            >
-                                                <FaCheck /> {updatingId === obs.observation_id ? 'Procesando...' : 'Marcar'}
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => updateObservationStatus(obs.observation_id, true)}
-                                                disabled={updatingId === obs.observation_id}
-                                                style={{
-                                                    ...undoButtonStyle,
-                                                    opacity: updatingId === obs.observation_id ? 0.7 : 1,
-                                                    cursor: updatingId === obs.observation_id ? 'not-allowed' : 'pointer'
-                                                }}
-                                                title="Marcar como pendiente"
-                                            >
-                                                <FaUndo /> {updatingId === obs.observation_id ? 'Procesando...' : 'Deshacer'}
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                ) : (
-                    <div className="alert alert-info">No hay observaciones registradas</div>
+                {error && (
+                    <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-red-800">{error}</div>
+                    </div>
                 )}
+
+                <div className="overflow-x-auto">
+                    {observations && observations.length > 0 ? (
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                            ID
+                                        </span>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Observación
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        <span className="flex items-center gap-2">
+                                            <FaUser className="text-green-500" />
+                                            Usuario
+                                        </span>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        <span className="flex items-center gap-2">
+                                            <FaMapMarkerAlt className="text-purple-500" />
+                                            Ubicación
+                                        </span>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        <span className="flex items-center gap-2">
+                                            <FaClock className="text-orange-500" />
+                                            Fecha
+                                        </span>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Estado
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Acciones
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {observations.map(obs => (
+                                    <tr key={obs.observation_id} className="hover:bg-gray-50 transition-colors duration-150">
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                            #{obs.observation_id}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-700 max-w-md">
+                                            <div className="line-clamp-3">
+                                                {obs.observation_string}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-gray-900">
+                                                    {obs.username || 'Usuario desconocido'}
+                                                </span>
+                                                {obs.first_name && obs.last_name && (
+                                                    <span className="text-gray-500 text-xs">
+                                                        {obs.first_name} {obs.last_name}
+                                                    </span>
+                                                )}
+                                                {obs.email && (
+                                                    <span className="text-gray-500 text-xs">
+                                                        {obs.email}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">
+                                            <div className="flex flex-col">
+                                                {obs.store_name ? (
+                                                    <>
+                                                        <span className="font-medium text-gray-900">
+                                                            {obs.store_name}
+                                                        </span>
+                                                        <span className="text-gray-500 text-xs">
+                                                            {obs.region_name}
+                                                        </span>
+                                                        {obs.store_address && (
+                                                            <span className="text-gray-500 text-xs">
+                                                                {obs.store_address}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="text-gray-400 italic">
+                                                        Sin ubicación
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">
+                                                    {new Date(obs.created_at).toLocaleDateString('es-CL', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric'
+                                                    })}
+                                                </span>
+                                                <span className="text-gray-500 text-xs">
+                                                    {new Date(obs.created_at).toLocaleTimeString('es-CL', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm">
+                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                                obs.is_active 
+                                                    ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
+                                                    : 'bg-green-100 text-green-800 border border-green-200'
+                                            }`}>
+                                                {obs.is_active ? 'Pendiente' : 'Realizado'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm">
+                                            {obs.is_active ? (
+                                                <button
+                                                    onClick={() => updateObservationStatus(obs.observation_id, false)}
+                                                    disabled={updatingId === obs.observation_id}
+                                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                        updatingId === obs.observation_id
+                                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                            : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
+                                                    }`}
+                                                    title="Marcar como realizado"
+                                                >
+                                                    <FaCheck className="w-3 h-3" />
+                                                    {updatingId === obs.observation_id ? 'Procesando...' : 'Marcar'}
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => updateObservationStatus(obs.observation_id, true)}
+                                                    disabled={updatingId === obs.observation_id}
+                                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                        updatingId === obs.observation_id
+                                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                            : 'bg-gray-600 text-white hover:bg-gray-700 hover:shadow-md'
+                                                    }`}
+                                                    title="Marcar como pendiente"
+                                                >
+                                                    <FaUndo className="w-3 h-3" />
+                                                    {updatingId === obs.observation_id ? 'Procesando...' : 'Deshacer'}
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div className="p-12 text-center">
+                            <div className="text-gray-400 text-lg mb-2">No hay observaciones registradas</div>
+                            <p className="text-gray-500">Las observaciones aparecerán aquí cuando los usuarios las registren.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
