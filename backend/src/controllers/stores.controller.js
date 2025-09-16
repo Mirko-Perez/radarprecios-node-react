@@ -1,7 +1,7 @@
 import pool from '../config/db.js';
 
 // Obtener comercios por región
-export const getStoresByRegion = async (req, res) => {
+export const listarComerciosPorRegion = async (req, res) => {
   const { region_id } = req.params;
   try {
     const result = await pool.query(
@@ -15,7 +15,7 @@ export const getStoresByRegion = async (req, res) => {
 };
 
 // Agregar comercio nuevo
-export const addStore = async (req, res) => {
+export const crearComercio = async (req, res) => {
   try {
     const { store_name, region_id, address, co_cli, segmento, ciudad } = req.body;
 
@@ -99,16 +99,17 @@ export const listarComercios = async (req, res) => {
         r.region_name,
         c.address,
         c.segmento,
-        c.ciudad,
+        c.ciudad
       FROM comercios c
       LEFT JOIN regiones r ON c.region_id = r.region_id
       WHERE c.deleted = false
       ORDER BY c.store_id ASC
     `);
 
-    return res.json(
-      result.rows,
-    );
+    return res.json({
+      success: true,
+      data: result.rows
+    });
   } catch (error) {
     console.error("Error al listar comercios:", error);
     return res
@@ -121,7 +122,7 @@ export const listarComercios = async (req, res) => {
 
 
 // GET /api/stores/:id
-export const getStoreById = async (req, res) => {
+export const obtenerComercioPorId = async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
 
@@ -175,7 +176,7 @@ export const getStoreById = async (req, res) => {
  *  PATCH /api/stores/45
  *  Body: { "store_name": "Nuevo Nombre", "ciudad": "Santiago" }
  */
-export const updateStore = async (req, res) => {
+export const actualizarComercio = async (req, res) => {
   const { id } = req.params;
   const { store_name, region_id, address, co_cli, segmento, ciudad, deleted } = req.body;
 
@@ -268,7 +269,7 @@ export const updateStore = async (req, res) => {
  * Ejemplo:
  *  DELETE /api/stores/45
  */
-export const deleteStore = async (req, res) => {
+export const eliminarComercio = async (req, res) => {
   const { id } = req.params;
 
   if (!id) {

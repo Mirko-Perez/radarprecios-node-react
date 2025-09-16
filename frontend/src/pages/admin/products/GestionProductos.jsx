@@ -41,18 +41,18 @@ const GestionProductos = () => {
         ]);
 
         if (productsRes.status === "fulfilled") {
-          setProducts(productsRes.value.data);
-          setFilteredProducts(productsRes.value.data);
-        } else {
-          throw new Error("Error al cargar los productos");
+          const productsData = productsRes.value.data.success ? productsRes.value.data.data : productsRes.value.data;
+          setProducts(Array.isArray(productsData) ? productsData : []);
         }
 
         if (brandsRes.status === "fulfilled") {
-          setBrands(brandsRes.value.data);
+          const brandsData = brandsRes.value.data.success ? brandsRes.value.data.data : brandsRes.value.data;
+          setBrands(Array.isArray(brandsData) ? brandsData : []);
         }
 
         if (regionsRes.status === "fulfilled") {
-          setRegions(regionsRes.value.data || []);
+          const regionsData = regionsRes.value.data.success ? regionsRes.value.data.data : regionsRes.value.data;
+          setRegions(Array.isArray(regionsData) ? regionsData : []);
         }
       } catch (err) {
         setError("Error al cargar los datos. Por favor, intente de nuevo.");
@@ -106,25 +106,36 @@ const GestionProductos = () => {
   const confirmStatusChange = async (product) => {
     try {
       const newStatus = !product.is_valid;
-      const response = await axios.put(
+      const response = await axios.patch(
         `${API_URL}/products/${product.product_id}/status`,
         { is_valid: newStatus },
         { headers: { "Content-Type": "application/json" } }
       );
 
-      if (response.status === 200) {
-        setProducts(
-          products.map((p) =>
-            p.product_id === product.product_id ? { ...p, is_valid: newStatus } : p
+      // Handle new consistent response format
+      if (response.data.success) {
+        // Update the local state
+        setProducts(prevProducts =>
+          prevProducts.map(p =>
+            p.product_id === product.product_id
+              ? { ...p, is_valid: newStatus }
+              : p
           )
         );
-
-        toast.success(
-          `Producto ${newStatus ? "habilitado" : "deshabilitado"} correctamente`
+        setFilteredProducts(prevProducts =>
+          prevProducts.map(p =>
+            p.product_id === product.product_id
+              ? { ...p, is_valid: newStatus }
+              : p
+          )
         );
+        toast.success(response.data.message || `Producto ${newStatus ? 'activado' : 'desactivado'} correctamente`);
+      } else {
+        toast.error(response.data.message || 'Error al actualizar el producto');
       }
-    } catch {
-      toast.error("Error al actualizar el estado del producto");
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      toast.error(error.response?.data?.message || 'Error al actualizar el estado del producto');
     }
   };
 

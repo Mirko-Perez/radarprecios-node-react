@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { AuthContext } from "../../contexts/AuthContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 const regiones = [
   { id: 1, nombre: "Andes", ruta: "andes" },
@@ -81,7 +81,7 @@ const CheckIn = () => {
 
     const checkActiveCheckIn = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/checkins/active`, {
+        const response = await axios.get(`${API_URL}/checkins/active`, {
           headers: { Authorization: `Bearer ${token}` },
           validateStatus: (status) => status < 500,
         });
@@ -119,29 +119,24 @@ const CheckIn = () => {
         }
 
         const response = await axios.get(
-          `${API_BASE_URL}/stores/region/${selectedRegion.id}`,
+          `${API_URL}/stores/region/${selectedRegion.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
+              "Cache-Control": "no-cache",
             },
-            validateStatus: (status) => status < 500,
           },
         );
 
-        if (response.status === 200) {
-          setStores(
-            response.data.map((store) => ({
-              value: store.store_id,
-              label: store.store_name,
-              ...store,
-            })),
-          );
-        } else {
-          throw new Error(
-            response.data?.message || "Error al cargar las tiendas",
-          );
-        }
+        // Handle new consistent response format
+        const storesData = response.data.success ? response.data.data : response.data;
+        setStores(
+          Array.isArray(storesData) ? storesData.map((store) => ({
+            value: store.store_id,
+            label: store.store_name,
+            ...store,
+          })) : []
+        );
       } catch (error) {
         console.error("Error al cargar tiendas:", error);
         setMessage({
@@ -223,7 +218,7 @@ const CheckIn = () => {
 
       // Create new check-in
       const response = await axios.post(
-        `${API_BASE_URL}/checkins`,
+        `${API_URL}/checkins`,
         {
           region_id: selectedRegion.id,
           store_id: selectedStore.value,
@@ -242,7 +237,7 @@ const CheckIn = () => {
       if (observation.trim()) {
         try {
           await axios.post(
-            `${API_BASE_URL}/observations`,
+            `${API_URL}/observations`,
             {
               observation_string: observation,
               user_id: user.id,
@@ -301,7 +296,7 @@ const CheckIn = () => {
 
     try {
       await axios.put(
-        `${API_BASE_URL}/checkins/${activeCheckIn.checkin_id}/checkout`,
+        `${API_URL}/checkins/${activeCheckIn.checkin_id}/checkout`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },

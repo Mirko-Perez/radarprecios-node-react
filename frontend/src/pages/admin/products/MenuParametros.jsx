@@ -36,7 +36,9 @@ const MenuParametros = () => {
       }
       
       const response = await axios.get(`${API_URL}${endpoint}`);
-      setData(response.data);
+      // Handle new consistent response format
+      const responseData = response.data.success ? response.data.data : response.data;
+      setData(Array.isArray(responseData) ? responseData : []);
     } catch (error) {
       toast.error(`Error al cargar ${type}s`);
       console.error(`Error fetching ${type}s:`, error);
@@ -199,7 +201,7 @@ const MenuParametros = () => {
           {(type === "producto" ? item.is_valid : item.is_active) ? "🔄" : "✅"}
         </button>
       )}
-      
+
         <button
           onClick={() => handleDelete(item, type)}
           className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"

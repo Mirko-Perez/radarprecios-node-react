@@ -92,17 +92,20 @@ const DashboardAvanzado = () => {
     const fetchRegions = async () => {
       try {
         const response = await axios.get(`${API_URL}/regions`);
-        setRegions(response.data);
-        if (!selectedRegion && response.data.length > 0) {
-          setSelectedRegion(response.data[0].region_id);
+        // Handle new consistent response format
+        const regionsData = response.data.success ? response.data.data : response.data;
+        setRegions(Array.isArray(regionsData) ? regionsData : []);
+        if (!selectedRegion && regionsData.length > 0) {
+          setSelectedRegion(regionsData[0].region_id);
         }
-      } catch (err) {
-        console.error('Error fetching regions:', err);
+      } catch (error) {
+        console.error('Error fetching regions:', error);
+        setRegions([]);
       }
     };
 
     fetchRegions();
-  }, [selectedRegion]);
+  }, []);
 
   // Obtener datos del dashboard
   useEffect(() => {
@@ -115,7 +118,9 @@ const DashboardAvanzado = () => {
         const statsResponse = await axios.get(`${API_URL}/prices/statistics`, {
           params: { region_id: selectedRegion }
         });
-        setStatistics(statsResponse.data);
+        // Handle new consistent response format
+        const statsData = statsResponse.data.success ? statsResponse.data.data : statsResponse.data;
+        setStatistics(statsData);
 
         // Fetch price trend data
         const trendResponse = await axios.get(`${API_URL}/prices/trend`, {
@@ -124,7 +129,9 @@ const DashboardAvanzado = () => {
             time_range: timeRange
           }
         });
-        setChartData(trendResponse.data);
+        // Handle new consistent response format
+        const trendData = trendResponse.data.success ? trendResponse.data.data : trendResponse.data;
+        setChartData(trendData);
 
         // Fetch most expensive products
         const expensiveResponse = await axios.get(`${API_URL}/prices/most-expensive`, {
@@ -133,7 +140,9 @@ const DashboardAvanzado = () => {
             limit: 10
           }
         });
-        setExpensiveProducts(expensiveResponse.data);
+        // Handle new consistent response format
+        const expensiveData = expensiveResponse.data.success ? expensiveResponse.data.data : expensiveResponse.data;
+        setExpensiveProducts(expensiveData);
 
         // Fetch cheapest products
         const cheapestResponse = await axios.get(`${API_URL}/prices/cheapest`, {
@@ -142,7 +151,9 @@ const DashboardAvanzado = () => {
             limit: 10
           }
         });
-        setCheapestProducts(cheapestResponse.data);
+        // Handle new consistent response format
+        const cheapestData = cheapestResponse.data.success ? cheapestResponse.data.data : cheapestResponse.data;
+        setCheapestProducts(cheapestData);
 
         // Fetch expensive brands
         const expensiveBrandsResponse = await axios.get(`${API_URL}/prices/most-expensive-brands`, {
@@ -151,7 +162,9 @@ const DashboardAvanzado = () => {
             limit: 3
           }
         });
-        setExpensiveBrands(expensiveBrandsResponse.data);
+        // Handle new consistent response format
+        const expensiveBrandsData = expensiveBrandsResponse.data.success ? expensiveBrandsResponse.data.data : expensiveBrandsResponse.data;
+        setExpensiveBrands(expensiveBrandsData);
 
         // Fetch cheapest brands
         const cheapestBrandsResponse = await axios.get(`${API_URL}/prices/cheapest-brands`, {
@@ -160,7 +173,9 @@ const DashboardAvanzado = () => {
             limit: 3
           }
         });
-        setCheapestBrands(cheapestBrandsResponse.data);
+        // Handle new consistent response format
+        const cheapestBrandsData = cheapestBrandsResponse.data.success ? cheapestBrandsResponse.data.data : cheapestBrandsResponse.data;
+        setCheapestBrands(cheapestBrandsData);
 
         // Fetch average prices by region
         const regionAveragesResponse = await axios.get(`${API_URL}/prices/average-by-region`, {
@@ -168,7 +183,9 @@ const DashboardAvanzado = () => {
             time_range: timeRange
           }
         });
-        setRegionAverages(regionAveragesResponse.data);
+        // Handle new consistent response format
+        const regionAveragesData = regionAveragesResponse.data.success ? regionAveragesResponse.data.data : regionAveragesResponse.data;
+        setRegionAverages(regionAveragesData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Error al cargar los datos del dashboard');

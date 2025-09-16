@@ -1,5 +1,5 @@
 import express from 'express';
-import { getObservations, addObservation, updateObservationStatus } from '../controllers/observationsController.js';
+import { getObservations, addObservation, updateObservationStatus } from '../controllers/observations.controller.js';
 
 const router = express.Router();
 

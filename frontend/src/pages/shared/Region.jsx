@@ -142,9 +142,11 @@ const Region = () => {
     if (selectedStore) {
       setBrandsLoading(true);
       axios
-        .get(`${API_URL}/brands?store_id=${selectedStore.value}`)
+        .get(`${API_URL}/brands/store/${selectedStore.value}`)
         .then((response) => {
-          setBrands(Array.isArray(response.data) ? response.data : []);
+          // Handle new consistent response format
+          const brandsData = response.data.success ? response.data.data : response.data;
+          setBrands(Array.isArray(brandsData) ? brandsData : []);
         })
         .catch(() => {
           setBrands([]);
@@ -173,7 +175,9 @@ const Region = () => {
       axios
         .get(`${API_URL}/products/brand/${selectedOption.value}`)
         .then((response) => {
-          setProducts(Array.isArray(response.data) ? response.data : []);
+          // Handle new consistent response format
+          const productsData = response.data.success ? response.data.data : response.data;
+          setProducts(Array.isArray(productsData) ? productsData : []);
         })
         .catch(() => {
           setProducts([]);

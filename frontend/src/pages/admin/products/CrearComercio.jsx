@@ -14,7 +14,7 @@ const CrearComercio = ({ onCancel }) => {
 
   // eliminado navigate, se usará onCancel
   const { user } = useAuth();
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/";
 
   useEffect(() => {
     const fetchRegiones = async () => {
@@ -25,7 +25,7 @@ const CrearComercio = ({ onCancel }) => {
             Authorization: `Bearer ${token}`,
           },
         });
-        setRegiones(response.data || []);
+        setRegiones(response.data.data || []);
       } catch (err) {
         console.error("Error fetching regions:", err);
         setError("Error al cargar las regiones");

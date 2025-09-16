@@ -29,10 +29,13 @@ const CrearMarca = ({ onCancel }) => {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                setRegiones(response.data || []);
-            } catch (err) {
-                console.error('Error fetching regions:', err);
-                setError('Error al cargar las regiones');
+                
+                // Handle new consistent response format
+                const regionesData = response.data.success ? response.data.data : response.data;
+                setRegiones(Array.isArray(regionesData) ? regionesData : []);
+            } catch (error) {
+                console.error('Error al cargar regiones:', error);
+                setRegiones([]);
             } finally {
                 setLoading(false);
             }
@@ -58,10 +61,13 @@ const CrearMarca = ({ onCancel }) => {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                setStores(response.data || []);
-            } catch (err) {
-                console.error('Error fetching stores:', err);
-                setError('Error al cargar las tiendas de la región');
+                
+                // Handle new consistent response format
+                const storesData = response.data.success ? response.data.data : response.data;
+                setStores(Array.isArray(storesData) ? storesData : []);
+            } catch (error) {
+                console.error('Error al cargar tiendas:', error);
+                setStores([]);
             } finally {
                 setLoadingStores(false);
             }
@@ -84,7 +90,7 @@ const CrearMarca = ({ onCancel }) => {
 
         try {
             const token = localStorage.getItem('token');
-            await axios.post(
+            const response = await axios.post(
                 `${API_URL}/brands`,
                 {
                     brand_name: nombre.trim(),
@@ -97,13 +103,18 @@ const CrearMarca = ({ onCancel }) => {
                     }
                 }
             );
-
-            setSuccess('Marca creada exitosamente');
-            setNombre('');
-            setStoreId('');
-        } catch (err) {
-            console.error('Error creating brand:', err);
-            setError(err.response?.data?.message || 'Error al crear la marca');
+            
+            // Handle new consistent response format
+            if (response.data.success) {
+                setSuccess('Marca creada exitosamente');
+                setNombre('');
+                setStoreId('');
+            } else {
+                setError(response.data.message || 'Error al crear la marca');
+            }
+        } catch (error) {
+            console.error('Error creating brand:', error);
+            setError(error.response?.data?.message || 'Error al crear la marca');
         } finally {
             setSubmitting(false);
         }
