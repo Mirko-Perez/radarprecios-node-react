@@ -1,100 +1,105 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../../contexts/AuthContext";
-import "../../dashboard/Menu.css";
+import Swal from "sweetalert2";
 
-const CrearComercio = ({ onCancel }) => {
+const CrearComercio = ({ onCancel, editData, onSuccess }) => {
   const [nombre, setNombre] = useState("");
   const [regionId, setRegionId] = useState("");
   const [regiones, setRegiones] = useState([]);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // eliminado navigate, se usará onCancel
-  const { user } = useAuth();
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/";
 
+  // Cargar regiones y inicializar campos si se está editando
   useEffect(() => {
     const fetchRegiones = async () => {
       try {
         const token = localStorage.getItem("token");
         const response = await axios.get(`${API_URL}/regions`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
         setRegiones(response.data.data || []);
+
+        if (editData) {
+          setNombre(editData.store_name || "");
+          setRegionId(editData.region_id || "");
+        }
       } catch (err) {
         console.error("Error fetching regions:", err);
-        setError("Error al cargar las regiones");
+        Swal.fire("Error", "No se pudieron cargar las regiones", "error");
       } finally {
         setLoading(false);
       }
     };
-
     fetchRegiones();
-  }, [API_URL]);
+  }, [API_URL, editData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!nombre.trim() || !regionId) {
-      setError("Por favor completa todos los campos");
+      Swal.fire("Error", "Por favor completa todos los campos", "warning");
       return;
     }
 
     setSubmitting(true);
-    setError("");
-    setSuccess("");
 
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
-        `${API_URL}/stores`,
-        {
-          store_name: nombre.trim(),
-          region_id: Number(regionId),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      setSuccess("Comercio creado exitosamente");
-      setNombre("");
-      setRegionId("");
+      if (editData) {
+        // Editar
+        await axios.put(
+          `${API_URL}/stores/${editData.store_id}`,
+          { store_name: nombre.trim(), region_id: Number(regionId) },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        Swal.fire("Éxito", "Comercio actualizado correctamente", "success");
+      } else {
+        // Crear
+        await axios.post(
+          `${API_URL}/stores`,
+          { store_name: nombre.trim(), region_id: Number(regionId) },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        Swal.fire("Éxito", "Comercio creado correctamente", "success");
+      }
+      if (onSuccess) onSuccess();
     } catch (err) {
-      console.error("Error creating store:", err);
-      setError(err.response?.data?.message || "Error al crear el comercio");
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Error al guardar el comercio",
+        "error",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <div className="loading">Cargando regiones...</div>;
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="form-container">
-      <h2>Crear Nuevo Comercio</h2>
+    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-auto">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+        {editData ? "Editar Comercio" : "Crear Nuevo Comercio"}
+      </h2>
 
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-
-      <form onSubmit={handleSubmit} className="form">
-        <div className="form-group">
-          <label htmlFor="region">Región:</label>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="flex flex-col">
+          <label htmlFor="region" className="font-medium text-gray-700 mb-1">
+            Región:
+          </label>
           <select
             id="region"
             value={regionId}
             onChange={(e) => setRegionId(e.target.value)}
-            className="form-control"
+            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={submitting}
             required
           >
@@ -107,135 +112,40 @@ const CrearComercio = ({ onCancel }) => {
           </select>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="nombre">Nombre del Comercio:</label>
+        <div className="flex flex-col">
+          <label htmlFor="nombre" className="font-medium text-gray-700 mb-1">
+            Nombre del Comercio:
+          </label>
           <input
             type="text"
             id="nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="form-control"
+            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={submitting}
             required
           />
         </div>
 
-        <div className="form-actions">
+        <div className="flex justify-end gap-3 mt-4">
           <button
-            type="submit"
-            className="btn btn-primary"
+            type="button"
+            onClick={onCancel}
             disabled={submitting}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
           >
-            {submitting ? "Guardando..." : "Guardar Comercio"}
+            Cancelar
           </button>
 
           <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onCancel}
+            type="submit"
             disabled={submitting}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
           >
-            Volver
+            {submitting ? "Guardando..." : editData ? "Actualizar" : "Crear"}
           </button>
         </div>
       </form>
-
-      <style jsx>{`
-                .form-container {
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background: #fff;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                }
-                
-                .form {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 20px;
-                }
-                
-                .form-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-                
-                label {
-                    font-weight: 500;
-                    color: #333;
-                }
-                
-                .form-control {
-                    padding: 10px 12px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 16px;
-                }
-                
-                .form-control:focus {
-                    border-color: #4a90e2;
-                    outline: none;
-                    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
-                }
-                
-                .form-actions {
-                    display: flex;
-                    gap: 12px;
-                    margin-top: 20px;
-                }
-                
-                .btn {
-                    padding: 10px 20px;
-                    border: none;
-                    border-radius: 4px;
-                    font-size: 16px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                
-                .btn:disabled {
-                    opacity: 0.7;
-                    cursor: not-allowed;
-                }
-                
-                .btn-primary {
-                    background-color: #4a90e2;
-                    color: white;
-                }
-                
-                .btn-primary:hover:not(:disabled) {
-                    background-color: #3a7bc8;
-                }
-                
-                .btn-secondary {
-                    background-color: #6c757d;
-                    color: white;
-                }
-                
-                .btn-secondary:hover:not(:disabled) {
-                    background-color: #5a6268;
-                }
-                
-                .alert {
-                    padding: 12px;
-                    border-radius: 4px;
-                    margin-bottom: 20px;
-                }
-                
-                .alert-danger {
-                    background-color: #f8d7da;
-                    color: #721c24;
-                    border: 1px solid #f5c6cb;
-                }
-                
-                .alert-success {
-                    background-color: #d4edda;
-                    color: #155724;
-                    border: 1px solid #c3e6cb;
-                }
-            `}</style>
     </div>
   );
 };

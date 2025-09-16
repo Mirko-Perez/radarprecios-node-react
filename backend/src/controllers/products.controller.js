@@ -1,27 +1,7 @@
 import pool from '../config/db.js';
-import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-// Configuración de multer para subida de imágenes
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../images');
-    if (!existsSync(uploadDir)) {
-      require('fs').mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
-  }
-});
 
-export const upload = multer({ storage: storage });
 
 // GET /api/products - Obtener todos los productos
 export const getAllProducts = async (req, res) => {
@@ -97,6 +77,22 @@ export const getProductsByRegion = async (req, res) => {
   const { region_id } = req.params;
   
   try {
+
+
+    if (region_id === "all") {
+      const result = await pool.query(`
+        SELECT p.*, b.brand_name, g.group_name, r.region_name
+        FROM productos p
+        LEFT JOIN marcas b ON p.brand_id = b.brand_id
+        LEFT JOIN grupos g ON p.group_id = g.group_id
+        LEFT JOIN regiones r ON p.region_id = r.region_id
+        ORDER BY p.product_name
+      `);
+      return res.json({ success: true, data: result.rows });
+    }
+
+
+
     const result = await pool.query(`
       SELECT 
         p.*,
@@ -178,8 +174,15 @@ export const createProduct = async (req, res) => {
     }
 
     const result = await pool.query(
-      'INSERT INTO productos (product_name, brand_id, group_id, region_id, imagen, is_valid) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [product_name, brand_id, group_id, region_id, imagen, true]
+      'INSERT INTO productos (product_name, brand_id, group_id, region_id, imagen, is_valid) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [
+        product_name,
+        parseInt(brand_id),
+        parseInt(group_id),
+        parseInt(region_id),
+        imagen,
+        1 
+      ]
     );
 
     res.status(201).json({

@@ -13,7 +13,7 @@ import { Bar } from "react-chartjs-2";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../contexts/AuthContext";
 import "./Dashboard.css";
-import { FaLayerGroup, FaMapMarkerAlt, FaSearch } from "react-icons/fa";
+import { FaMapMarkerAlt } from "react-icons/fa";
 
 // Register Chart.js components
 ChartJS.register(
@@ -110,11 +110,11 @@ const Dashboard = () => {
       setTopAndBottomBrands([]);
       return;
     }
-    
+
     try {
       setBrandStats([]);
       setTopAndBottomBrands([]);
-      let allBrandsWithStats = [];
+      const allBrandsWithStats = [];
 
       if (regionId === "all") {
         // For all regions, get all brands first
@@ -125,101 +125,135 @@ const Dashboard = () => {
           },
         });
 
-        const brandsData = brandsResponse.data.success ? brandsResponse.data.data : brandsResponse.data;
+        const brandsData = brandsResponse.data.success
+          ? brandsResponse.data.data
+          : brandsResponse.data;
         const brands = Array.isArray(brandsData) ? brandsData : [];
 
         // Get price stats for each brand
         for (const brand of brands) {
           try {
-            const statsResponse = await axios.get(`${API_URL}/brands/${brand.brand_id}/price-stats`, {
-              timeout: 10000,
-              headers: {
-                "Cache-Control": "no-cache",
+            const statsResponse = await axios.get(
+              `${API_URL}/brands/${brand.brand_id}/price-stats`,
+              {
+                timeout: 10000,
+                headers: {
+                  "Cache-Control": "no-cache",
+                },
               },
-            });
-            
-            const statsData = statsResponse.data.success ? statsResponse.data.data : statsResponse.data;
+            );
+
+            const statsData = statsResponse.data.success
+              ? statsResponse.data.data
+              : statsResponse.data;
             allBrandsWithStats.push({
               ...brand,
               ...statsData,
               brand: brand.brand_name,
               average_price: parseFloat(statsData.average_price) || 0,
               product_count: parseInt(statsData.total_products) || 0,
-              price_count: parseInt(statsData.total_prices) || 0
+              price_count: parseInt(statsData.total_prices) || 0,
             });
           } catch (error) {
-            console.error(`Error fetching stats for brand ${brand.brand_id}:`, error);
+            console.error(
+              `Error fetching stats for brand ${brand.brand_id}:`,
+              error,
+            );
             // Include brand without stats
             allBrandsWithStats.push({
               ...brand,
               brand: brand.brand_name,
               average_price: 0,
               product_count: 0,
-              price_count: 0
+              price_count: 0,
             });
           }
         }
       } else {
         // For specific region, get brands by stores in that region
-        const storesResponse = await axios.get(`${API_URL}/stores/region/${regionId}`, {
-          timeout: 10000,
-          headers: {
-            "Cache-Control": "no-cache",
+        const storesResponse = await axios.get(
+          `${API_URL}/stores/region/${regionId}`,
+          {
+            timeout: 10000,
+            headers: {
+              "Cache-Control": "no-cache",
+            },
           },
-        });
+        );
 
-        const storesData = storesResponse.data.success ? storesResponse.data.data : storesResponse.data;
+        const storesData = storesResponse.data.success
+          ? storesResponse.data.data
+          : storesResponse.data;
         let regionBrands = [];
-        
+
         // Get brands for each store in the region
         for (const store of storesData) {
           try {
-            const brandsResponse = await axios.get(`${API_URL}/brands/store/${store.store_id}`, {
-              timeout: 10000,
-              headers: {
-                "Cache-Control": "no-cache",
+            const brandsResponse = await axios.get(
+              `${API_URL}/brands/store/${store.store_id}`,
+              {
+                timeout: 10000,
+                headers: {
+                  "Cache-Control": "no-cache",
+                },
               },
-            });
-            const brandsData = brandsResponse.data.success ? brandsResponse.data.data : brandsResponse.data;
-            regionBrands = regionBrands.concat(Array.isArray(brandsData) ? brandsData : []);
+            );
+            const brandsData = brandsResponse.data.success
+              ? brandsResponse.data.data
+              : brandsResponse.data;
+            regionBrands = regionBrands.concat(
+              Array.isArray(brandsData) ? brandsData : [],
+            );
           } catch (error) {
-            console.error(`Error fetching brands for store ${store.store_id}:`, error);
+            console.error(
+              `Error fetching brands for store ${store.store_id}:`,
+              error,
+            );
           }
         }
 
         // Remove duplicates based on brand_id
-        const uniqueBrands = regionBrands.filter((brand, index, self) => 
-          index === self.findIndex(b => b.brand_id === brand.brand_id)
+        const uniqueBrands = regionBrands.filter(
+          (brand, index, self) =>
+            index === self.findIndex((b) => b.brand_id === brand.brand_id),
         );
 
         // Get price stats for each unique brand
         for (const brand of uniqueBrands) {
           try {
-            const statsResponse = await axios.get(`${API_URL}/brands/${brand.brand_id}/price-stats`, {
-              timeout: 10000,
-              headers: {
-                "Cache-Control": "no-cache",
+            const statsResponse = await axios.get(
+              `${API_URL}/brands/${brand.brand_id}/price-stats`,
+              {
+                timeout: 10000,
+                headers: {
+                  "Cache-Control": "no-cache",
+                },
               },
-            });
-            
-            const statsData = statsResponse.data.success ? statsResponse.data.data : statsResponse.data;
+            );
+
+            const statsData = statsResponse.data.success
+              ? statsResponse.data.data
+              : statsResponse.data;
             allBrandsWithStats.push({
               ...brand,
               ...statsData,
               brand: brand.brand_name,
               average_price: parseFloat(statsData.average_price) || 0,
               product_count: parseInt(statsData.total_products) || 0,
-              price_count: parseInt(statsData.total_prices) || 0
+              price_count: parseInt(statsData.total_prices) || 0,
             });
           } catch (error) {
-            console.error(`Error fetching stats for brand ${brand.brand_id}:`, error);
+            console.error(
+              `Error fetching stats for brand ${brand.brand_id}:`,
+              error,
+            );
             // Include brand without stats
             allBrandsWithStats.push({
               ...brand,
               brand: brand.brand_name,
               average_price: 0,
               product_count: 0,
-              price_count: 0
+              price_count: 0,
             });
           }
         }
@@ -316,7 +350,7 @@ const Dashboard = () => {
         for (const region of regions) {
           const endpoint = `${API_URL}/products/region/${String(region.region_id)}`;
           const productsResponse = await axios.get(endpoint);
-          let products = productsResponse.data || [];
+          let products = productsResponse.data.data || [];
           // Agregar el nombre de la región a cada producto
           products = products.map((item) => ({
             ...item,

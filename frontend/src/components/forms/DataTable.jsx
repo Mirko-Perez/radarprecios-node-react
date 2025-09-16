@@ -22,7 +22,7 @@ const DataTable = ({
           <tr>
             {columns.map((column, index) => (
               <th
-                key={column.key || index}
+                key={`${column.key}-${index}`}
                 className={`px-4 py-2 ${column.headerClassName || ""}`}
                 style={column.width ? { width: column.width } : {}}
               >
@@ -35,7 +35,7 @@ const DataTable = ({
           {data.length > 0 ? (
             data.map((row, rowIndex) => (
               <tr
-                key={row.id || rowIndex}
+                key={`${row.id}-${rowIndex}`}
                 className={`border-b hover:bg-gray-50 transition-colors ${rowClassName}`}
               >
                 {columns.map((column, colIndex) => (

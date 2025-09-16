@@ -1,363 +1,359 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useAuth } from '../../../contexts/AuthContext';
-import '../../dashboard/Menu.css';
+import axios from "axios";
+import { useEffect, useRef, useState } from "react";
 
 const CrearProducto = ({ onCancel }) => {
-    const imageInputRef = useRef(null);
-    const [nombre, setNombre] = useState('');
-    const [regionId, setRegionId] = useState('');
-    const [storeId, setStoreId] = useState('');
-    const [brandId, setBrandId] = useState('');
-    const [grupoId, setGrupoId] = useState('');
-    const [imagen, setImagen] = useState(null);
-    const [preview, setPreview] = useState('');
-    const [regiones, setRegiones] = useState([]);
-    const [stores, setStores] = useState([]);
-    const [brands, setBrands] = useState([]);
-    const [grupos, setGrupos] = useState([]);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [loadingStores, setLoadingStores] = useState(false);
-    const [loadingBrands, setLoadingBrands] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
+  const imageInputRef = useRef(null);
+  const [nombre, setNombre] = useState("");
+  const [regionId, setRegionId] = useState("");
+  const [storeId, setStoreId] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [grupoId, setGrupoId] = useState("");
+  const [imagen, setImagen] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [regiones, setRegiones] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [grupos, setGrupos] = useState([]);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadingStores, setLoadingStores] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-    // eliminado navigate, se usará onCancel
-    const { user } = useAuth();
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
-    // Cargar regiones al montar el componente
-    useEffect(() => {
-        const fetchRegiones = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get(`${API_URL}/regions`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                setRegiones(response.data || []);
-            } catch (err) {
-                console.error('Error fetching regions:', err);
-                setError('Error al cargar las regiones');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchRegiones();
-    }, [API_URL]);
-
-    // Cargar tiendas cuando se selecciona una región
-    useEffect(() => {
-        const fetchStores = async () => {
-            if (!regionId) {
-                setStores([]);
-                setStoreId('');
-                setBrands([]);
-                setBrandId('');
-                return;
-            }
-
-            setLoadingStores(true);
-            try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get(`${API_URL}/stores/region/${regionId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                setStores(response.data || []);
-            } catch (err) {
-                console.error('Error fetching stores:', err);
-                setError('Error al cargar las tiendas de la región');
-            } finally {
-                setLoadingStores(false);
-            }
-        };
-
-        fetchStores();
-    }, [regionId, API_URL]);
-
-    // Cargar marcas cuando se selecciona una tienda
-    useEffect(() => {
-        const fetchBrands = async () => {
-            if (!storeId) {
-                setBrands([]);
-                setBrandId('');
-                return;
-            }
-
-            setLoadingBrands(true);
-            try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get(`${API_URL}/brands/store/${storeId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                setBrands(response.data || []);
-            } catch (err) {
-                console.error('Error fetching brands:', err);
-                setError('Error al cargar las marcas de la tienda');
-            } finally {
-                setLoadingBrands(false);
-            }
-        };
-
-        fetchBrands();
-    }, [storeId, API_URL]);
-
-    // Cargar grupos
-    useEffect(() => {
-        const fetchGrupos = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get(`${API_URL}/groups`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                setGrupos(response.data || []);
-                // Seleccionar el primer grupo por defecto si existe
-                if (response.data && response.data.length > 0) {
-                    setGrupoId(response.data[0].group_id);
-                }
-            } catch (err) {
-                console.error('Error fetching groups:', err);
-                setError('Error al cargar los grupos');
-            }
-        };
-
-        fetchGrupos();
-    }, [API_URL]);
-
-    // Manejar cambio de imagen
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImagen(file);
-            setPreview(URL.createObjectURL(file));
-        }
+  useEffect(() => {
+    const fetchRegiones = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API_URL}/regions`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setRegiones(res.data.data || []);
+      } catch (err) {
+        console.error(err);
+        setError("Error al cargar las regiones");
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchRegiones();
+  }, [API_URL]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!nombre.trim() || !regionId || !storeId || !brandId || !grupoId || !imagen) {
-            setError('Por favor completa todos los campos obligatorios, incluyendo la imagen');
-            return;
-        }
-
-        setSubmitting(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            const token = localStorage.getItem('token');
-            const formData = new FormData();
-            formData.append('product_name', nombre.trim());
-            formData.append('brand_id', brandId);
-            formData.append('region_id', regionId);
-            formData.append('group_id', grupoId);
-
-            // Add timestamp to image filename to ensure uniqueness
-            const timestamp = new Date().getTime();
-            const fileName = `${timestamp}_${imagen.name}`;
-            formData.append('imagen', imagen, fileName);
-
-            await axios.post(`${API_URL}/products`, formData, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            setSuccess('Producto creado exitosamente');
-            setNombre('');
-            setRegionId('');
-            setStoreId('');
-            setBrandId('');
-            setImagen(null);
-            setPreview('');
-            // Clear the file input value
-            if (imageInputRef.current) {
-                imageInputRef.current.value = '';
-            }
-        } catch (err) {
-            console.error('Error creating product:', err);
-            setError(err.response?.data?.message || 'Error al crear el producto');
-        } finally {
-            setSubmitting(false);
-        }
+  useEffect(() => {
+    const fetchStores = async () => {
+      if (!regionId) {
+        setStores([]);
+        setStoreId("");
+        setBrands([]);
+        setBrandId("");
+        return;
+      }
+      setLoadingStores(true);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API_URL}/stores/region/${regionId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setStores(res.data || []);
+      } catch (err) {
+        console.error(err);
+        setError("Error al cargar las tiendas");
+      } finally {
+        setLoadingStores(false);
+      }
     };
+    fetchStores();
+  }, [regionId, API_URL]);
 
-    if (loading) {
-        return <div className="loading">Cargando...</div>;
+  useEffect(() => {
+    const fetchBrands = async () => {
+      if (!storeId) {
+        setBrands([]);
+        setBrandId("");
+        return;
+      }
+      setLoadingBrands(true);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API_URL}/brands/store/${storeId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setBrands(res.data.data || []);
+      } catch (err) {
+        console.error(err);
+        setError("Error al cargar las marcas");
+      } finally {
+        setLoadingBrands(false);
+      }
+    };
+    fetchBrands();
+  }, [storeId, API_URL]);
+
+  useEffect(() => {
+    const fetchGrupos = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API_URL}/groups`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setGrupos(res.data.data || []);
+        if (res.data && res.data.length > 0) setGrupoId(res.data[0].group_id);
+      } catch (err) {
+        console.error(err);
+        setError("Error al cargar los grupos");
+      }
+    };
+    fetchGrupos();
+  }, [API_URL]);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImagen(file);
+      setPreview(URL.createObjectURL(file));
     }
+  };
 
-    return (
-        <div className="container mt-4">
-            <div className="row justify-content-center">
-                <div className="col-md-8 col-lg-6">
-                    <div className="card shadow-sm">
-                        <div className="card-header bg-primary text-white">
-                            <h4 className="mb-0">Crear Nuevo Producto</h4>
-                        </div>
-                        <div className="card-body">
-                            {error && <div className="alert alert-danger mb-3">{error}</div>}
-                            {success && <div className="alert alert-success mb-3">{success}</div>}
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!nombre || !regionId || !storeId || !brandId || !grupoId || !imagen) {
+      setError("Completa todos los campos obligatorios");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
 
-                            <form onSubmit={handleSubmit} className="needs-validation" noValidate>
-                                <div className="row g-3">
-                                    <div className="col-md-6">
-                                        <label htmlFor="region" className="form-label">Región *</label>
-                                        <select
-                                            id="region"
-                                            className="form-select"
-                                            value={regionId}
-                                            onChange={(e) => {
-                                                setRegionId(e.target.value);
-                                                setStoreId('');
-                                                setBrandId('');
-                                            }}
-                                            disabled={submitting}
-                                            required
-                                        >
-                                            <option value="">Seleccione una región</option>
-                                            {regiones.map(region => (
-                                                <option key={region.region_id} value={region.region_id}>
-                                                    {region.region_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("product_name", nombre.trim());
+      formData.append("brand_id", brandId);
+      formData.append("region_id", regionId);
+      formData.append("group_id", grupoId);
+      formData.append("imagen", imagen);
 
-                                    <div className="col-md-6">
-                                        <label htmlFor="store" className="form-label">Comercio *</label>
-                                        <select
-                                            id="store"
-                                            className="form-select"
-                                            value={storeId}
-                                            onChange={(e) => setStoreId(e.target.value)}
-                                            disabled={!regionId || loadingStores || submitting}
-                                            required
-                                        >
-                                            <option value="">Seleccione un comercio</option>
-                                            {stores.map(store => (
-                                                <option key={store.store_id} value={store.store_id}>
-                                                    {store.store_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {loadingStores && <div className="form-text">Cargando comercios...</div>}
-                                    </div>
-                                </div>
+      await axios.post(`${API_URL}/products`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-                                <div className="row g-3 mt-2">
-                                    <div className="col-md-6">
-                                        <label htmlFor="brand" className="form-label">Marca *</label>
-                                        <select
-                                            id="brand"
-                                            className="form-select"
-                                            value={brandId}
-                                            onChange={(e) => setBrandId(e.target.value)}
-                                            disabled={!storeId || loadingBrands || submitting}
-                                            required
-                                        >
-                                            <option value="">Seleccione una marca</option>
-                                            {brands.map(brand => (
-                                                <option key={brand.brand_id} value={brand.brand_id}>
-                                                    {brand.brand_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {loadingBrands && <div className="form-text">Cargando marcas...</div>}
-                                    </div>
+      setSuccess("Producto creado exitosamente");
+      setNombre("");
+      setRegionId("");
+      setStoreId("");
+      setBrandId("");
+      setGrupoId("");
+      setImagen(null);
+      setPreview("");
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Error al crear el producto");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-                                    <div className="col-md-6">
-                                        <label htmlFor="grupo" className="form-label">Grupo *</label>
-                                        <select
-                                            id="grupo"
-                                            className="form-select"
-                                            value={grupoId}
-                                            onChange={(e) => setGrupoId(e.target.value)}
-                                            disabled={submitting}
-                                            required
-                                        >
-                                            {grupos.map(grupo => (
-                                                <option key={grupo.group_id} value={grupo.group_id}>
-                                                    {grupo.group_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
+  if (loading) return <div className="text-center py-6">Cargando...</div>;
 
-                                <div className="mb-3 mt-3">
-                                    <label htmlFor="nombre" className="form-label">Nombre del Producto *</label>
-                                    <input
-                                        type="text"
-                                        id="nombre"
-                                        className="form-control"
-                                        value={nombre}
-                                        onChange={(e) => setNombre(e.target.value)}
-                                        disabled={submitting}
-                                        placeholder="Ingrese el nombre del producto"
-                                        required
-                                    />
-                                </div>
+  return (
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-2xl shadow-lg mt-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+        Crear Nuevo Producto
+      </h2>
 
-                                <div className="mb-4">
-                                    <label htmlFor="imagen" className="form-label">Imagen</label>
-                                    <input
-                                        type="file"
-                                        id="imagen"
-                                        className="form-control"
-                                        onChange={handleImageChange}
-                                        accept="image/*"
-                                        disabled={submitting}
-                                        ref={imageInputRef}
-                                    />
-                                    {preview && (
-                                        <div className="mt-2 text-center">
-                                            <img
-                                                src={preview}
-                                                alt="Vista previa"
-                                                className="img-thumbnail"
-                                                style={{ maxWidth: '200px', maxHeight: '200px' }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>
+      )}
+      {success && (
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+          {success}
+        </div>
+      )}
 
-                                <div className="d-flex justify-content-between mt-4">
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={onCancel}
-                                        disabled={submitting}
-                                    >
-                                        <i className="bi bi-arrow-left me-1"></i> Volver
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary"
-                                        disabled={submitting}
-                                    >
-                                        {submitting ? (
-                                            <>
-                                                <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                                Guardando...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <i className="bi bi-save me-1"></i> Guardar Producto
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div >
-        </div >
-    );
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="region"
+              className="block text-gray-700 font-medium mb-1"
+            >
+              Región *
+            </label>
+            <select
+              id="region"
+              value={regionId}
+              onChange={(e) => {
+                setRegionId(e.target.value);
+                setStoreId("");
+                setBrandId("");
+              }}
+              disabled={submitting}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Seleccione una región</option>
+              {regiones.map((r) => (
+                <option key={r.region_id} value={r.region_id}>
+                  {r.region_name}
+                </option>
+              ))}
+            </select>
+            {loadingStores && (
+              <p className="text-sm text-gray-500 mt-1">
+                Cargando comercios...
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="comercio"
+              className="block text-gray-700 font-medium mb-1"
+            >
+              Comercio *
+            </label>
+            <select
+              id="comercio"
+              value={storeId}
+              onChange={(e) => setStoreId(e.target.value)}
+              disabled={!regionId || loadingStores || submitting}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Seleccione un comercio</option>
+              {stores.map((s) => (
+                <option key={s.store_id} value={s.store_id}>
+                  {s.store_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="marca"
+              className="block text-gray-700 font-medium mb-1"
+            >
+              Marca *
+            </label>
+            <select
+              id="marca"
+              value={brandId}
+              onChange={(e) => setBrandId(e.target.value)}
+              disabled={!storeId || loadingBrands || submitting}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Seleccione una marca</option>
+              {brands.map((b) => (
+                <option key={b.brand_id} value={b.brand_id}>
+                  {b.brand_name}
+                </option>
+              ))}
+            </select>
+            {loadingBrands && (
+              <p className="text-sm text-gray-500 mt-1">Cargando marcas...</p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="grupo"
+              className="block text-gray-700 font-medium mb-1"
+            >
+              Grupo *
+            </label>
+            <select
+              id="grupo"
+              value={grupoId}
+              onChange={(e) => setGrupoId(e.target.value)}
+              disabled={submitting}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              {grupos.map((g) => (
+                <option key={g.group_id} value={g.group_id}>
+                  {g.group_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="producto"
+            className="block text-gray-700 font-medium mb-1"
+          >
+            Nombre del Producto *
+          </label>
+          <input
+            id="producto"
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            disabled={submitting}
+            placeholder="Ingrese el nombre del producto"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="imagen"
+            className="block text-gray-700 font-medium mb-1"
+          >
+            Imagen *
+          </label>
+          <input
+            id="imagen"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            ref={imageInputRef}
+            disabled={submitting}
+            className="w-full"
+          />
+          {preview && (
+            <img
+              src={preview}
+              alt="Preview"
+              className="mt-2 w-48 h-48 object-cover rounded-md mx-auto"
+            />
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 mt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+          >
+            Volver
+          </button>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+          >
+            {submitting ? (
+              <span className="loader border-t-2 border-b-2 border-white w-4 h-4 rounded-full animate-spin"></span>
+            ) : (
+              "Guardar Producto"
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 };
 
 export default CrearProducto;

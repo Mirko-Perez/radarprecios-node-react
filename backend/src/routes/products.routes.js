@@ -8,11 +8,18 @@ import {
   updateProduct, 
   updateProductStatus, 
   deleteProduct,
-  upload 
 } from '../controllers/products.controller.js';
+import multer from 'multer';
+
 import { validateProduct, validateProductId, validateProductStatus } from '../middlewares/validation.js';
 
+
 const router = express.Router();
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'src/images'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage });
 
 // GET /api/products - Obtener todos los productos
 router.get('/', getAllProducts);
