@@ -8,6 +8,7 @@ const ALLOWED_VIEWER_PATHS = [
   "/region",
   "/menu",
   "/check-in",
+  "/foto-anaquel",
   "/logout", // Permitir cierre de sesión
 ];
 

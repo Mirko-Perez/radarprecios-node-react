@@ -5,7 +5,33 @@ import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { AuthContext } from "../../contexts/AuthContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+
+// Helper: get geolocation with retry for transient CoreLocation errors
+const getLocationWithRetry = (options = {}, retries = 2, delayMs = 1000) => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      return reject(new Error("Geolocation not supported"));
+    }
+
+    const attempt = (remaining) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => {
+          // 2: POSITION_UNAVAILABLE often maps to kCLErrorLocationUnknown on macOS/iOS
+          if ((err.code === 2 || err.code === err.POSITION_UNAVAILABLE) && remaining > 0) {
+            setTimeout(() => attempt(remaining - 1), delayMs);
+          } else {
+            reject(err);
+          }
+        },
+        options
+      );
+    };
+
+    attempt(retries);
+  });
+};
 
 const regiones = [
   { id: 1, nombre: "Andes", ruta: "andes" },
@@ -81,16 +107,31 @@ const CheckIn = () => {
 
     const checkActiveCheckIn = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/checkins/active`, {
+        const response = await axios.get(`${API_URL}/checkins/active`, {
           headers: { Authorization: `Bearer ${token}` },
           validateStatus: (status) => status < 500,
         });
 
-        if (response.data && response.data.checkin_id) {
-          setActiveCheckIn(response.data);
+        // Handle the backend response format correctly
+        if (response.data && response.data.success && response.data.data) {
+          const checkInData = response.data.data;
+          // Map the backend field names to frontend expected names
+          setActiveCheckIn({
+            ...checkInData,
+            checkin_id: checkInData.checkin_id,
+            region_nombre: checkInData.region_name,
+            comercio_nombre: checkInData.store_name,
+            region_id: checkInData.region_id,
+            store_id: checkInData.store_id,
+            created_at: checkInData.created_at
+          });
+        } else {
+          // No active check-in found
+          setActiveCheckIn(null);
         }
       } catch (error) {
         console.error("Error al verificar check-in activo:", error);
+        setActiveCheckIn(null);
       } finally {
         setIsLoading(false);
       }
@@ -119,29 +160,24 @@ const CheckIn = () => {
         }
 
         const response = await axios.get(
-          `${API_BASE_URL}/stores/region/${selectedRegion.id}`,
+          `${API_URL}/stores/region/${selectedRegion.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
+              "Cache-Control": "no-cache",
             },
-            validateStatus: (status) => status < 500,
           },
         );
 
-        if (response.status === 200) {
-          setStores(
-            response.data.map((store) => ({
-              value: store.store_id,
-              label: store.store_name,
-              ...store,
-            })),
-          );
-        } else {
-          throw new Error(
-            response.data?.message || "Error al cargar las tiendas",
-          );
-        }
+        // Handle new consistent response format
+        const storesData = response.data.success ? response.data.data : response.data;
+        setStores(
+          Array.isArray(storesData) ? storesData.map((store) => ({
+            value: store.store_id,
+            label: store.store_name,
+            ...store,
+          })) : []
+        );
       } catch (error) {
         console.error("Error al cargar tiendas:", error);
         setMessage({
@@ -190,17 +226,19 @@ const CheckIn = () => {
       return;
     }
 
-    // Check location permission before proceeding
+    // We won't block the user if permission is denied; we'll try to get location and continue without it if needed
     if (navigator.permissions) {
-      const permissionStatus = await navigator.permissions.query({
-        name: "geolocation",
-      });
-      if (permissionStatus.state === "denied") {
-        setMessage({
-          text: "Debes permitir el acceso a tu ubicación para hacer check-in",
-          isError: true,
-        });
-        return;
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        if (permissionStatus.state === "denied") {
+          // Warn but continue
+          setMessage({
+            text: "No pudimos acceder a tu ubicación (permiso denegado). Continuaremos sin geolocalización.",
+            isError: false,
+          });
+        }
+      } catch {
+        // ignore permission query failures
       }
     }
 
@@ -208,22 +246,29 @@ const CheckIn = () => {
     setMessage({ text: "", isError: false });
 
     try {
-      // Get user's location
+      // Get user's location with retry, but don't fail the flow if it errors
       let latitude = null;
       let longitude = null;
 
-      if (navigator.geolocation) {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
-
+      try {
+        const position = await getLocationWithRetry(
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 },
+          2,
+          1000
+        );
         latitude = position.coords.latitude;
         longitude = position.coords.longitude;
+      } catch (geoErr) {
+        console.warn("Geolocation failed, proceeding without location:", geoErr);
+        setMessage({
+          text: "No se pudo determinar tu ubicación. Continuamos sin geolocalización.",
+          isError: false,
+        });
       }
 
       // Create new check-in
       const response = await axios.post(
-        `${API_BASE_URL}/checkins`,
+        `${API_URL}/checkins`,
         {
           region_id: selectedRegion.id,
           store_id: selectedStore.value,
@@ -238,14 +283,19 @@ const CheckIn = () => {
         },
       );
 
-      // Save observation if provided
+      // Extract new check-in id from backend's standard response shape
+      const createdCheckIn = response.data?.data || response.data;
+      const newCheckinId = createdCheckIn?.checkin_id;
+
+      // Save observation if provided (link to this check-in when available)
       if (observation.trim()) {
         try {
           await axios.post(
-            `${API_BASE_URL}/observations`,
+            `${API_URL}/observations`,
             {
               observation_string: observation,
               user_id: user.id,
+              checkin_id: newCheckinId || undefined,
             },
             {
               headers: {
@@ -301,7 +351,7 @@ const CheckIn = () => {
 
     try {
       await axios.put(
-        `${API_BASE_URL}/checkins/${activeCheckIn.checkin_id}/checkout`,
+        `${API_URL}/checkins/${activeCheckIn.checkin_id}/checkout`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -379,13 +429,13 @@ const CheckIn = () => {
                 className={`p-4 rounded-xl mb-6 border-l-4 ${
                   message.isError
                     ? "bg-red-50 border-red-400 text-red-700"
-                    : "bg-green-50 border-green-400 text-green-700"
+                    : "bg-blue-50 border-blue-400 text-blue-700"
                 }`}
               >
                 <div className="flex items-center">
                   <div
                     className={`w-2 h-2 rounded-full mr-3 ${
-                      message.isError ? "bg-red-400" : "bg-green-400"
+                      message.isError ? "bg-red-400" : "bg-blue-400"
                     }`}
                   ></div>
                   <p className="font-medium">{message.text}</p>
@@ -421,6 +471,31 @@ const CheckIn = () => {
                       <p className="text-gray-900">
                         {new Date(activeCheckIn.created_at).toLocaleString()}
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Information message about restrictions */}
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        Check-In Activo
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>
+                          Tienes un check-in activo. Para hacer un nuevo check-in debes:
+                        </p>
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>Actualizar al menos un precio, o</li>
+                          <li>Hacer check-out de la sesión actual</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -466,9 +541,53 @@ const CheckIn = () => {
                       {isSaving ? "Cargando..." : "Actualizar Precios"}
                     </span>
                   </button>
+                  
                   <button
                     type="button"
-                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 transition-all transform hover:scale-105 shadow-lg"
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 transition-all transform hover:scale-105 shadow-lg"
+                    onClick={() => {
+                      navigate("/foto-anaquel", {
+                        state: {
+                          selectedRegion: activeCheckIn.region_id,
+                          selectedStore: activeCheckIn.store_id,
+                          regionName: activeCheckIn.region_nombre,
+                          storeName: activeCheckIn.comercio_nombre,
+                        },
+                      });
+                    }}
+                    disabled={
+                      !activeCheckIn ||
+                      !activeCheckIn.region_id ||
+                      !activeCheckIn.store_id
+                    }
+                  >
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      "Foto Anaquel"
+                    </span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 transition-all transform hover:scale-105 shadow-lg"
                     onClick={handleCheckOut}
                     disabled={isSaving}
                   >
@@ -493,120 +612,118 @@ const CheckIn = () => {
               </div>
             ) : (
               /* Check-In Form */
-              <form onSubmit={handleCheckIn} className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Selecciona una región
-                    </label>
-                    <Select
-                      options={regiones.map((region) => ({
-                        value: region.id,
-                        label: region.nombre,
-                        ruta: region.ruta,
-                      }))}
-                      value={
-                        selectedRegion
-                          ? {
-                              value: selectedRegion.id,
-                              label: selectedRegion.nombre,
-                            }
-                          : null
-                      }
-                      onChange={handleRegionChange}
-                      placeholder="Selecciona una región..."
-                      isDisabled={isSaving}
-                      styles={customSelectStyles}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Selecciona una tienda
-                    </label>
-                    <Select
-                      options={stores}
-                      value={selectedStore}
-                      onChange={handleStoreChange}
-                      placeholder={
-                        isLoadingStores
-                          ? "Cargando tiendas..."
-                          : "Selecciona una tienda"
-                      }
-                      isDisabled={
-                        !selectedRegion || isLoadingStores || isSaving
-                      }
-                      styles={customSelectStyles}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Observación (opcional)
-                    </label>
-                    <textarea
-                      value={observation}
-                      onChange={(e) => setObservation(e.target.value)}
-                      placeholder="Escribe tu observación aquí..."
-                      className="w-full min-h-[100px] p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                      disabled={isSaving}
-                    />
+              <div className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        No hay check-in activo
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>
+                          No tienes un check-in activo. Para hacer un nuevo check-in, selecciona una región y una tienda.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-lg"
-                    disabled={
-                      isSaving ||
-                      !selectedRegion ||
-                      !selectedStore ||
-                      hasLocationPermission === false
-                    }
-                  >
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      {isSaving ? "Procesando..." : "Hacer Check-In"}
-                    </span>
-                  </button>
-                  {/* <button
-                    type="button"
-                    className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-3 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg"
-                    onClick={() => navigate("/")}
-                    disabled={isSaving}
-                  >
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                        />
-                      </svg>
-                      Volver al Menú
-                    </span>
-                  </button> */}
-                </div>
-              </form>
+                <form onSubmit={handleCheckIn} className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Selecciona una región
+                      </label>
+                      <Select
+                        options={regiones.map((region) => ({
+                          value: region.id,
+                          label: region.nombre,
+                          ruta: region.ruta,
+                        }))}
+                        value={
+                          selectedRegion
+                            ? {
+                                value: selectedRegion.id,
+                                label: selectedRegion.nombre,
+                              }
+                            : null
+                        }
+                        onChange={handleRegionChange}
+                        placeholder="Selecciona una región..."
+                        isDisabled={isSaving}
+                        styles={customSelectStyles}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Selecciona una tienda
+                      </label>
+                      <Select
+                        options={stores}
+                        value={selectedStore}
+                        onChange={handleStoreChange}
+                        placeholder={
+                          isLoadingStores
+                            ? "Cargando tiendas..."
+                            : "Selecciona una tienda"
+                        }
+                        isDisabled={
+                          !selectedRegion || isLoadingStores || isSaving
+                        }
+                        styles={customSelectStyles}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Observación (opcional)
+                      </label>
+                      <textarea
+                        value={observation}
+                        onChange={(e) => setObservation(e.target.value)}
+                        placeholder="Escribe tu observación aquí..."
+                        className="w-full min-h-[100px] p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                        disabled={isSaving}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 shadow-lg"
+                      disabled={
+                        isSaving ||
+                        !selectedRegion ||
+                        !selectedStore
+                      }
+                    >
+                      <span className="flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        {isSaving ? "Procesando..." : "Hacer Check-In"}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             )}
           </div>
         </div>

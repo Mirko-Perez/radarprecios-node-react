@@ -3,7 +3,7 @@ import {
     crearUsuario, 
     listarUsuarios, 
     actualizarEstadoUsuario 
-} from '../controllers/adminController.js';
+} from '../controllers/admin.controller.js';
 import { crearUsuarioRules } from '../validators/usuarioValidator.js';
 import { validateJWT } from '../middlewares/validateJWT.js';
 import { listarPermisosUsuario } from '../controllers/permisos.controller.js';

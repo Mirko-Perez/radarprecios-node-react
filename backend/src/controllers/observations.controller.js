@@ -4,14 +4,26 @@ export const getObservations = async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT 
-                observation_id, 
-                observation_string, 
-                user_id, 
-                created_at,
-                is_active 
-             FROM observaciones 
-             WHERE is_active = true 
-             ORDER BY created_at DESC`
+                o.observation_id, 
+                o.observation_string, 
+                o.user_id,
+                o.checkin_id,
+                o.created_at,
+                o.is_active,
+                u.username,
+                u.email,
+                c.region_id,
+                c.store_id,
+                r.region_name,
+                s.store_name,
+                s.store_address
+             FROM observaciones o
+             LEFT JOIN usuarios u ON o.user_id = u.user_id
+             LEFT JOIN checkins c ON o.checkin_id = c.checkin_id
+             LEFT JOIN regiones r ON c.region_id = r.region_id
+             LEFT JOIN comercios s ON c.store_id = s.store_id
+             WHERE o.is_active = true 
+             ORDER BY o.created_at DESC`
         );
         
         res.status(200).json({
@@ -94,7 +106,7 @@ export const updateObservationStatus = async (req, res) => {
 };
 
 export const addObservation = async (req, res) => {
-    const { observation_string, user_id, is_active = true } = req.body;
+    const { observation_string, user_id, checkin_id, is_active = true } = req.body;
     
     // Validar campos requeridos
     if (!observation_string?.trim()) {
@@ -117,12 +129,42 @@ export const addObservation = async (req, res) => {
         // Iniciar transacción
         await client.query('BEGIN');
         
+        // Verificar que el usuario existe
+        const userCheck = await client.query(
+            'SELECT user_id FROM usuarios WHERE user_id = $1',
+            [user_id]
+        );
+        
+        if (userCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Si se proporciona checkin_id, verificar que existe y pertenece al usuario
+        if (checkin_id) {
+            const checkinCheck = await client.query(
+                'SELECT checkin_id FROM checkins WHERE checkin_id = $1 AND user_id = $2',
+                [checkin_id, user_id]
+            );
+            
+            if (checkinCheck.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({
+                    success: false,
+                    message: 'Check-in no encontrado o no pertenece al usuario'
+                });
+            }
+        }
+        
         // Insertar la observación
         const result = await client.query(
-            `INSERT INTO observaciones (observation_string, user_id, is_active, created_at)
-             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+            `INSERT INTO observaciones (observation_string, user_id, checkin_id, is_active, created_at)
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
              RETURNING *`,
-            [observation_string.trim(), user_id, is_active]
+            [observation_string.trim(), user_id, checkin_id, is_active]
         );
         
         await client.query('COMMIT');
@@ -157,5 +199,47 @@ export const addObservation = async (req, res) => {
         
     } finally {
         client.release();
+    }
+};
+
+// Nueva función para obtener observaciones con información completa
+export const getObservationsWithDetails = async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT 
+                o.observation_id, 
+                o.observation_string, 
+                o.user_id,
+                o.checkin_id,
+                o.created_at,
+                o.is_active,
+                u.username,
+                u.email,
+                c.region_id,
+                c.store_id,
+                c.created_at as checkin_date,
+                r.region_name,
+                s.store_name,
+                s.address
+             FROM observaciones o
+             LEFT JOIN usuarios u ON o.user_id = u.user_id
+             LEFT JOIN checkins c ON o.checkin_id = c.checkin_id
+             LEFT JOIN regiones r ON c.region_id = r.region_id
+             LEFT JOIN comercios s ON c.store_id = s.store_id
+             ORDER BY o.created_at DESC`
+        );
+        
+        res.status(200).json({
+            success: true,
+            data: result.rows
+        });
+        
+    } catch (error) {
+        console.error('Error al obtener las observaciones con detalles:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message
+        });
     }
 };

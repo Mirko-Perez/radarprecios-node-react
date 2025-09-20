@@ -1,6 +1,6 @@
 // routes/permisos.routes.ts
 import express from "express";
-import { listarPermisos } from "../controllers/permisos.controller.js"
+import { listarPermisos } from "../controllers/permisos.controller.js";
 
 const router = express.Router();
 

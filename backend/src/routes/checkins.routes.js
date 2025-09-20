@@ -3,8 +3,8 @@ import { validateJWT } from '../middlewares/validateJWT.js';
 import { 
     createCheckIn, 
     getActiveCheckIn, 
-    checkout 
-} from '../controllers/checkinsController.js';
+    createCheckOut 
+} from '../controllers/checkins.controller.js';
 
 const router = Router();
 
@@ -18,6 +18,6 @@ router.get('/active', getActiveCheckIn);
 router.post('/', createCheckIn);
 
 // Hacer check-out
-router.put('/:checkin_id/checkout', checkout);
+router.put('/:checkin_id/checkout', createCheckOut);
 
 export default router;

@@ -2,9 +2,9 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useAuth } from "../../../contexts/AuthContext";
 import Swal from "sweetalert2";
 import DataTable from "../../../components/forms/DataTable";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
@@ -41,18 +41,24 @@ const GestionProductos = () => {
         ]);
 
         if (productsRes.status === "fulfilled") {
-          setProducts(productsRes.value.data);
-          setFilteredProducts(productsRes.value.data);
-        } else {
-          throw new Error("Error al cargar los productos");
+          const productsData = productsRes.value.data.success
+            ? productsRes.value.data.data
+            : productsRes.value.data;
+          setProducts(Array.isArray(productsData) ? productsData : []);
         }
 
         if (brandsRes.status === "fulfilled") {
-          setBrands(brandsRes.value.data);
+          const brandsData = brandsRes.value.data.success
+            ? brandsRes.value.data.data
+            : brandsRes.value.data;
+          setBrands(Array.isArray(brandsData) ? brandsData : []);
         }
 
         if (regionsRes.status === "fulfilled") {
-          setRegions(regionsRes.value.data || []);
+          const regionsData = regionsRes.value.data.success
+            ? regionsRes.value.data.data
+            : regionsRes.value.data;
+          setRegions(Array.isArray(regionsData) ? regionsData : []);
         }
       } catch (err) {
         setError("Error al cargar los datos. Por favor, intente de nuevo.");
@@ -67,7 +73,7 @@ const GestionProductos = () => {
     let result = [...products];
     if (filters.nombre) {
       result = result.filter((p) =>
-        p.product_name.toLowerCase().includes(filters.nombre.toLowerCase())
+        p.product_name.toLowerCase().includes(filters.nombre.toLowerCase()),
       );
     }
     if (filters.marca) {
@@ -92,7 +98,9 @@ const GestionProductos = () => {
         : "",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: product.is_valid ? "Sí, deshabilitar" : "Sí, habilitar",
+      confirmButtonText: product.is_valid
+        ? "Sí, deshabilitar"
+        : "Sí, habilitar",
       cancelButtonText: "Cancelar",
       confirmButtonColor: product.is_valid ? "#d33" : "#16a34a",
       cancelButtonColor: "#6b7280",
@@ -106,91 +114,108 @@ const GestionProductos = () => {
   const confirmStatusChange = async (product) => {
     try {
       const newStatus = !product.is_valid;
-      const response = await axios.put(
+      const response = await axios.patch(
         `${API_URL}/products/${product.product_id}/status`,
         { is_valid: newStatus },
-        { headers: { "Content-Type": "application/json" } }
+        { headers: { "Content-Type": "application/json" } },
       );
 
-      if (response.status === 200) {
-        setProducts(
-          products.map((p) =>
-            p.product_id === product.product_id ? { ...p, is_valid: newStatus } : p
-          )
+      // Handle new consistent response format
+      if (response.data.success) {
+        // Update the local state
+        setProducts((prevProducts) =>
+          prevProducts.map((p) =>
+            p.product_id === product.product_id
+              ? { ...p, is_valid: newStatus }
+              : p,
+          ),
         );
-
+        setFilteredProducts((prevProducts) =>
+          prevProducts.map((p) =>
+            p.product_id === product.product_id
+              ? { ...p, is_valid: newStatus }
+              : p,
+          ),
+        );
         toast.success(
-          `Producto ${newStatus ? "habilitado" : "deshabilitado"} correctamente`
+          response.data.message ||
+            `Producto ${newStatus ? "activado" : "desactivado"} correctamente`,
         );
+      } else {
+        toast.error(response.data.message || "Error al actualizar el producto");
       }
-    } catch {
-      toast.error("Error al actualizar el estado del producto");
+    } catch (error) {
+      console.error("Error updating product status:", error);
+      toast.error(
+        error.response?.data?.message ||
+          "Error al actualizar el estado del producto",
+      );
     }
   };
 
   const getBrandName = (id) =>
     brands.find((b) => b.brand_id === id)?.brand_name || "N/A";
-  
+
   const getRegionName = (id) =>
     regions.find((r) => r.region_id === id)?.region_name || "N/A";
 
   // Configuración de columnas para la tabla
   const tableColumns = [
     {
-      key: 'imagen',
-      title: 'Imagen',
-      width: '80px',
-      render: (value, product) => (
-        value ? (
+      key: "imagen",
+      title: "Imagen",
+      width: "80px",
+      render: (imagen, product) => {
+        if (!imagen) {
+          return (
+            <div className="w-10 h-10 bg-gray-100 flex items-center justify-center text-gray-400 rounded">
+              📦
+            </div>
+          );
+        }
+
+        // Determinar la URL correcta
+        let src = "";
+        if (imagen.startsWith("/api/images/")) {
+          src = imagen.replace(/^\/api/, ""); // quitar el /api inicial
+        } else if (imagen.startsWith("/images/")) {
+          src = imagen;
+        } else {
+          const fileName = imagen.replace(/^.*[\\/]/, "");
+          src = `/images/${fileName}`;
+        }
+
+        return (
           <img
-            src={`${API_URL}${value}`}
+            src={`${API_URL}${src}`}
             alt={product.product_name}
-            className="w-12 h-12 object-cover rounded"
-            onError={(e) => {
-              e.target.src = "https://via.placeholder.com/50";
-            }}
+            className="w-10 h-10 object-cover rounded"
           />
-        ) : (
-          <div className="w-12 h-12 bg-gray-100 flex items-center justify-center text-gray-400 rounded">
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M3 4a1 1 0 011-1h4.586a1 1 0 01.707.293l1.414 1.414A1 1 0 0011.414 5H20a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4z"
-              />
-            </svg>
-          </div>
-        )
-      )
+        );
+      },
     },
     {
-      key: 'product_name',
-      title: 'Nombre'
+      key: "product_name",
+      title: "Nombre",
     },
     {
-      key: 'brand_id',
-      title: 'Marca',
-      render: (brandId) => getBrandName(brandId)
+      key: "brand_id",
+      title: "Marca",
+      render: (brandId) => getBrandName(brandId),
     },
     {
-      key: 'region_id',
-      title: 'Región',
-      render: (regionId) => getRegionName(regionId)
+      key: "region_id",
+      title: "Región",
+      render: (regionId) => getRegionName(regionId),
     },
     {
-      key: 'group_name',
-      title: 'Grupo',
-      render: (value) => value || "N/A"
+      key: "group_name",
+      title: "Grupo",
+      render: (value) => value || "N/A",
     },
     {
-      key: 'is_valid',
-      title: 'Estado',
+      key: "is_valid",
+      title: "Estado",
       render: (isValid) => (
         <span
           className={`px-2 py-1 rounded text-white text-xs ${
@@ -199,11 +224,11 @@ const GestionProductos = () => {
         >
           {isValid ? "Activo" : "Inactivo"}
         </span>
-      )
+      ),
     },
     {
-      key: 'actions',
-      title: 'Acciones',
+      key: "actions",
+      title: "Acciones",
       render: (_, product) => (
         <button
           onClick={() => handleStatusChange(product)}
@@ -213,16 +238,16 @@ const GestionProductos = () => {
         >
           {product.is_valid ? "Deshabilitar" : "Habilitar"}
         </button>
-      )
-    }
+      ),
+    },
   ];
 
   // Filtrar productos no eliminados
   const tableData = filteredProducts
     .filter((p) => !p.deleted)
-    .map(product => ({
+    .map((product) => ({
       ...product,
-      id: product.product_id // Para el key único en la tabla
+      id: product.product_id, // Para el key único en la tabla
     }));
 
   return (

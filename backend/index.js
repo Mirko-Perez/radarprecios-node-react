@@ -28,76 +28,87 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
   }
 });
+
 const upload = multer({ storage: storage });
+
 app.use('/api/prices', upload.single('photo'), pricesRoutes);
 
 // 1. Rutas de API primero
-import authRoutes from './src/routes/authRoutes.js';
+import authRoutes from './src/routes/auth.routes.js';
 app.use('/api/auth', authRoutes);
 
 import storesRoutes from './src/routes/stores.routes.js';
 app.use('/api/stores', storesRoutes);
 
-import brandsRoutes from './src/routes/brandsRoutes.js';
+import brandsRoutes from './src/routes/brands.routes.js';
 app.use('/api/brands', brandsRoutes);
 
-import groupsRoutes from './src/routes/groupsRoutes.js';
+import groupsRoutes from './src/routes/groups.routes.js';
 app.use('/api/groups', groupsRoutes);
 
-import productsRoutes from './src/routes/productsRoutes.js';
+import productsRoutes from './src/routes/products.routes.js';
 app.use('/api/products', productsRoutes);
 
-app.use('/api/images', express.static(path.join(__dirname, 'src/images')));
-
-import pricesRoutes from './src/routes/pricesRoutes.js';
-app.use('/api/prices', pricesRoutes);
-
-import overviewRoutes from './src/routes/overviewRoutes.js';
-app.use('/api/overview', overviewRoutes);
-
-import adminRoutes from './src/routes/adminRoutes.js';
-app.use('/api/admin', adminRoutes);
-
-import regionsRoutes from './src/routes/regionsRoutes.js';
+import regionsRoutes from './src/routes/regions.routes.js';
 app.use('/api/regions', regionsRoutes);
 
-import observationsRoutes from './src/routes/observationsRoutes.js';
+import pricesRoutes from './src/routes/prices.routes.js';
+app.use('/api/prices', pricesRoutes);
+
+import overviewRoutes from './src/routes/overview.routes.js';
+app.use('/api/overview', overviewRoutes);
+
+import adminRoutes from './src/routes/admin.routes.js';
+app.use('/api/admin', adminRoutes);
+
+import observationsRoutes from './src/routes/observations.routes.js';
 app.use('/api/observations', observationsRoutes);
 
-import checkinsRoutes from './src/routes/checkinsRoutes.js';
+import checkinsRoutes from './src/routes/checkins.routes.js';
 app.use('/api/checkins', checkinsRoutes);
 
 import permisosRouter from "./src/routes/permisos.routes.js";
 app.use("/api/permisos", permisosRouter);
 
+// Servir archivos estáticos de imágenes
+app.use('/api/images', express.static(path.join(__dirname, 'src/images')));
+
+import { errorHandler, notFoundHandler } from './src/middlewares/errorHandler.js';
+
 // 2. Servir archivos estáticos del frontend
 const staticPath = path.join(__dirname, './build-pwa');
 
-// Servir archivos estáticos
+console.log('Directorio estático:', staticPath);
 app.use(express.static(staticPath));
 
-// 3. Catch-all para SPA (ÚNICAMENTE para rutas no manejadas por API o archivos estáticos)
+// Manejar rutas no encontradas de la API
+app.use(/^\/api\/.*$/, notFoundHandler);
+
+
+// Catch-all handler: enviar el archivo index.html para rutas del frontend
 app.get(/^(?!\/?api).*/, (req, res) => {
   const indexPath = path.join(staticPath, 'index.html');
 
-  // Verificar si el archivo existe
   if (existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    console.error('Error: No se encontró el archivo index.html en:', indexPath);
-    res.status(500).send('Error: Archivo de aplicación no encontrado');
+    console.error('Archivo index.html no encontrado en:', indexPath);
+    res.status(404).send('Frontend no encontrado');
   }
 });
+
+// Middleware de manejo de errores (debe ir al final)
+app.use(errorHandler);
 
 process.on('uncaughtException', (err) => {
   console.error('Error no capturado:', err);
 });
 
-process.on('unhandledRejection', (err) => {
-  console.error('Promise rechazada no capturada:', err);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Promesa rechazada no manejada en:', promise, 'razón:', reason);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor escuchando en el puerto http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });

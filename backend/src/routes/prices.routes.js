@@ -12,7 +12,7 @@ import {
   addPrice,
   getAveragePricesByRegion,
   getAveragePricesByProductAndGroup
-} from '../controllers/pricesController.js';
+} from '../controllers/prices.controller.js';
 
 const router = express.Router();
 
