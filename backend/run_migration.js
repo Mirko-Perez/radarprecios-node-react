@@ -8,7 +8,7 @@ const runMigration = async () => {
     try {
         console.log('🚀 Iniciando migración de base de datos...');
         
-        // Leer el archivo SQL
+        // Leer el archivo SQL (referencial; este runner ejecuta statements definidos abajo)
         const migrationSQL = fs.readFileSync(
             path.join(process.cwd(), 'database_migration.sql'), 
             'utf8'
@@ -16,21 +16,15 @@ const runMigration = async () => {
         
         // Ejecutar cada statement individual manualmente para mejor control
         const statements = [
-            // Step 1: Add checkin_id column
+            // --- Observaciones/checkins relaciones existentes ---
             `ALTER TABLE observaciones ADD COLUMN IF NOT EXISTS checkin_id INTEGER`,
-            
-            // Step 2: Add foreign key constraint
             `ALTER TABLE observaciones 
              ADD CONSTRAINT fk_observaciones_checkin 
              FOREIGN KEY (checkin_id) REFERENCES checkins(checkin_id) 
              ON DELETE SET NULL ON UPDATE CASCADE`,
-            
-            // Step 3: Add indexes
             `CREATE INDEX IF NOT EXISTS idx_observaciones_checkin_id ON observaciones(checkin_id)`,
             `CREATE INDEX IF NOT EXISTS idx_observaciones_user_id ON observaciones(user_id)`,
             `CREATE INDEX IF NOT EXISTS idx_observaciones_created_at ON observaciones(created_at)`,
-            
-            // Step 4: Update existing observations
             `UPDATE observaciones 
              SET checkin_id = (
                  SELECT c.checkin_id 
@@ -45,7 +39,11 @@ const runMigration = async () => {
              AND EXISTS (
                  SELECT 1 FROM checkins c 
                  WHERE c.user_id = observaciones.user_id
-             )`
+             )`,
+
+            // --- NUEVO: permitir geolocalización opcional en checkins ---
+            `ALTER TABLE checkins ALTER COLUMN latitude DROP NOT NULL`,
+            `ALTER TABLE checkins ALTER COLUMN longitude DROP NOT NULL`,
         ];
         
         console.log(`📝 Ejecutando ${statements.length} statements...`);
@@ -55,15 +53,15 @@ const runMigration = async () => {
             const statement = statements[i].trim();
             if (statement) {
                 console.log(`⚡ Ejecutando statement ${i + 1}/${statements.length}`);
-                console.log(`   ${statement.substring(0, 50)}...`);
+                console.log(`   ${statement.substring(0, 80)}...`);
                 
                 try {
                     await client.query(statement);
                     console.log(`   ✅ Statement ${i + 1} ejecutado correctamente`);
                 } catch (stmtError) {
                     console.error(`   ❌ Error en statement ${i + 1}:`, stmtError.message);
-                    // Continuar con el siguiente statement si es un error no crítico
-                    if (stmtError.code !== '42701' && stmtError.code !== '42P07') { // Column already exists or relation already exists
+                    // Códigos tolerables: 42701 (columna ya existe), 42P07 (índice/relación ya existe), 23503 FK ya existe / variaciones
+                    if (!['42701', '42P07'].includes(stmtError.code)) {
                         throw stmtError;
                     }
                 }
@@ -72,54 +70,26 @@ const runMigration = async () => {
         
         console.log('✅ Migración completada exitosamente!');
         
-        // Verificar los resultados
-        console.log('\n📊 Verificando resultados...');
-        
-        // Verificar que la columna existe
-        const columnCheck = await client.query(`
-            SELECT column_name 
+        // Verificar ajustes de columnas de checkins
+        console.log('\n📊 Verificando columnas de checkins...');
+        const nnCheck = await client.query(`
+            SELECT column_name, is_nullable 
             FROM information_schema.columns 
-            WHERE table_name = 'observaciones' AND column_name = 'checkin_id'
+            WHERE table_name = 'checkins' AND column_name IN ('latitude','longitude')
         `);
+        console.table(nnCheck.rows);
         
-        if (columnCheck.rows.length > 0) {
-            console.log('✅ Columna checkin_id creada correctamente');
-            
-            // Verificar los datos
-            const result = await client.query(`
-                SELECT 
-                    'observaciones' as table_name,
-                    COUNT(*) as total_records,
-                    COUNT(checkin_id) as records_with_checkin,
-                    COUNT(*) - COUNT(checkin_id) as records_without_checkin
-                FROM observaciones
-            `);
-            
-            console.log('Resultados de la migración:');
-            console.table(result.rows);
-            
-            // Mostrar algunos ejemplos
-            const examples = await client.query(`
-                SELECT 
-                    o.observation_id,
-                    o.observation_string,
-                    u.username,
-                    r.region_name,
-                    s.store_name
-                FROM observaciones o
-                LEFT JOIN usuarios u ON o.user_id = u.user_id
-                LEFT JOIN checkins c ON o.checkin_id = c.checkin_id
-                LEFT JOIN regiones r ON c.region_id = r.region_id
-                LEFT JOIN comercios s ON c.store_id = s.store_id
-                ORDER BY o.created_at DESC
-                LIMIT 5
-            `);
-            
-            console.log('\n📋 Ejemplos de observaciones con relaciones:');
-            console.table(examples.rows);
-        } else {
-            console.error('❌ La columna checkin_id no fue creada');
-        }
+        // Verificar resultados previos
+        console.log('\n📊 Verificando resultados en observaciones...');
+        const result = await client.query(`
+            SELECT 
+                'observaciones' as table_name,
+                COUNT(*) as total_records,
+                COUNT(checkin_id) as records_with_checkin,
+                COUNT(*) - COUNT(checkin_id) as records_without_checkin
+            FROM observaciones
+        `);
+        console.table(result.rows);
         
     } catch (error) {
         console.error('❌ Error durante la migración:', error);

@@ -7,6 +7,32 @@ import { AuthContext } from "../../contexts/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
+// Helper: get geolocation with retry for transient CoreLocation errors
+const getLocationWithRetry = (options = {}, retries = 2, delayMs = 1000) => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      return reject(new Error("Geolocation not supported"));
+    }
+
+    const attempt = (remaining) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => {
+          // 2: POSITION_UNAVAILABLE often maps to kCLErrorLocationUnknown on macOS/iOS
+          if ((err.code === 2 || err.code === err.POSITION_UNAVAILABLE) && remaining > 0) {
+            setTimeout(() => attempt(remaining - 1), delayMs);
+          } else {
+            reject(err);
+          }
+        },
+        options
+      );
+    };
+
+    attempt(retries);
+  });
+};
+
 const regiones = [
   { id: 1, nombre: "Andes", ruta: "andes" },
   { id: 2, nombre: "Capital", ruta: "capital" },
@@ -200,17 +226,19 @@ const CheckIn = () => {
       return;
     }
 
-    // Check location permission before proceeding
+    // We won't block the user if permission is denied; we'll try to get location and continue without it if needed
     if (navigator.permissions) {
-      const permissionStatus = await navigator.permissions.query({
-        name: "geolocation",
-      });
-      if (permissionStatus.state === "denied") {
-        setMessage({
-          text: "Debes permitir el acceso a tu ubicación para hacer check-in",
-          isError: true,
-        });
-        return;
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        if (permissionStatus.state === "denied") {
+          // Warn but continue
+          setMessage({
+            text: "No pudimos acceder a tu ubicación (permiso denegado). Continuaremos sin geolocalización.",
+            isError: false,
+          });
+        }
+      } catch {
+        // ignore permission query failures
       }
     }
 
@@ -218,17 +246,24 @@ const CheckIn = () => {
     setMessage({ text: "", isError: false });
 
     try {
-      // Get user's location
+      // Get user's location with retry, but don't fail the flow if it errors
       let latitude = null;
       let longitude = null;
 
-      if (navigator.geolocation) {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
-
+      try {
+        const position = await getLocationWithRetry(
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 },
+          2,
+          1000
+        );
         latitude = position.coords.latitude;
         longitude = position.coords.longitude;
+      } catch (geoErr) {
+        console.warn("Geolocation failed, proceeding without location:", geoErr);
+        setMessage({
+          text: "No se pudo determinar tu ubicación. Continuamos sin geolocalización.",
+          isError: false,
+        });
       }
 
       // Create new check-in
@@ -248,7 +283,11 @@ const CheckIn = () => {
         },
       );
 
-      // Save observation if provided
+      // Extract new check-in id from backend's standard response shape
+      const createdCheckIn = response.data?.data || response.data;
+      const newCheckinId = createdCheckIn?.checkin_id;
+
+      // Save observation if provided (link to this check-in when available)
       if (observation.trim()) {
         try {
           await axios.post(
@@ -256,6 +295,7 @@ const CheckIn = () => {
             {
               observation_string: observation,
               user_id: user.id,
+              checkin_id: newCheckinId || undefined,
             },
             {
               headers: {
@@ -389,13 +429,13 @@ const CheckIn = () => {
                 className={`p-4 rounded-xl mb-6 border-l-4 ${
                   message.isError
                     ? "bg-red-50 border-red-400 text-red-700"
-                    : "bg-green-50 border-green-400 text-green-700"
+                    : "bg-blue-50 border-blue-400 text-blue-700"
                 }`}
               >
                 <div className="flex items-center">
                   <div
                     className={`w-2 h-2 rounded-full mr-3 ${
-                      message.isError ? "bg-red-400" : "bg-green-400"
+                      message.isError ? "bg-red-400" : "bg-blue-400"
                     }`}
                   ></div>
                   <p className="font-medium">{message.text}</p>
@@ -661,8 +701,7 @@ const CheckIn = () => {
                       disabled={
                         isSaving ||
                         !selectedRegion ||
-                        !selectedStore ||
-                        hasLocationPermission === false
+                        !selectedStore
                       }
                     >
                       <span className="flex items-center justify-center">

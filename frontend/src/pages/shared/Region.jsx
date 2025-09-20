@@ -8,7 +8,13 @@ import axios from "axios";
 import Select from "react-select";
 import { FiLogOut } from "react-icons/fi";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+// Normalize API URL to avoid relative 'api/...' requests
+const RAW_API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const API_URL = RAW_API_URL.startsWith("http")
+  ? RAW_API_URL
+  : RAW_API_URL.startsWith("/")
+    ? RAW_API_URL
+    : `/${RAW_API_URL}`;
 
 const regiones = [
   { id: 1, nombre: "Andes", ruta: "andes" },

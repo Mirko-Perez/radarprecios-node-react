@@ -1,5 +1,31 @@
 import { useEffect, useState } from 'react';
 
+// Helper: attempt geolocation with limited retries for transient failures
+const getLocationWithRetry = (options = {}, retries = 2, delayMs = 1000) => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      return reject(new Error('Geolocation not supported'));
+    }
+
+    const attempt = (remaining) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => {
+          // code 2 (POSITION_UNAVAILABLE) is often transient (kCLErrorLocationUnknown)
+          if ((err.code === 2 || err.code === err.POSITION_UNAVAILABLE) && remaining > 0) {
+            setTimeout(() => attempt(remaining - 1), delayMs);
+          } else {
+            reject(err);
+          }
+        },
+        options
+      );
+    };
+
+    attempt(retries);
+  });
+};
+
 const LocationPermission = ({ children }) => {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [error, setError] = useState(null);
@@ -22,7 +48,7 @@ const LocationPermission = ({ children }) => {
             setError(null);
           } else if (permissionStatus.state === 'denied') {
             setPermissionGranted(false);
-            setError('Permiso de ubicación denegado. Por favor, habilítalo manualmente en la configuración de tu navegador.');
+            setError('Permiso de ubicación denegado. Puedes continuar, pero algunas funciones no usarán geolocalización.');
           }
         };
 
@@ -34,17 +60,19 @@ const LocationPermission = ({ children }) => {
         
         // Request permission if not already determined
         if (permissionStatus.state === 'prompt') {
-          navigator.geolocation.getCurrentPosition(
-            () => {
-              setPermissionGranted(true);
-              setError(null);
-            },
-            (err) => {
-              console.error('Error al obtener la ubicación:', err);
-              setError('No se pudo acceder a tu ubicación. Algunas funciones pueden no estar disponibles.');
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          );
+          try {
+            await getLocationWithRetry(
+              { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
+              2,
+              1000
+            );
+            setPermissionGranted(true);
+            setError(null);
+          } catch (err) {
+            console.error('Error al obtener la ubicación:', err);
+            // Do not block UX: show a soft warning and continue
+            setError('No se pudo determinar tu ubicación en este momento. Continuaremos sin geolocalización.');
+          }
         }
 
         return () => {
@@ -64,12 +92,12 @@ const LocationPermission = ({ children }) => {
     return (
       <>
         <div style={{
-          backgroundColor: '#ffebee',
-          color: '#c62828',
+          backgroundColor: '#eff6ff',
+          color: '#1e40af',
           padding: '10px',
           textAlign: 'center',
           fontSize: '14px',
-          borderBottom: '1px solid #ffcdd2'
+          borderBottom: '1px solid #bfdbfe'
         }}>
           {error}
         </div>
