@@ -70,6 +70,9 @@ app.use('/api/checkins', checkinsRoutes);
 import permisosRouter from "./src/routes/permisos.routes.js";
 app.use("/api/permisos", permisosRouter);
 
+import exportRouter from './src/routes/export.routes.js';
+app.use('/api/export', exportRouter); // export del excel
+
 // Servir archivos estáticos de imágenes
 app.use('/api/images', express.static(path.join(__dirname, 'src/images')));
 
