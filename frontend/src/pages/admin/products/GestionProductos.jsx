@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 import DataTable from "../../../components/forms/DataTable";
+import { downloadExcel } from "../../../lib/utils/downloadExcel";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -321,6 +322,29 @@ const GestionProductos = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Acciones */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() =>
+            downloadExcel(
+              "/api/export/excel",
+              {
+                type: "productos",
+                q: filters.nombre || undefined,
+                brand_id: filters.marca || undefined,
+                region_id: filters.region || undefined,
+                // usar modo simple para evitar cualquier problema de stream en algunos navegadores
+              },
+              "productos.xlsx"
+            )
+          }
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition"
+          title="Exportar productos a Excel"
+        >
+          ⬇️ Exportar Excel
+        </button>
       </div>
 
       {error && (
