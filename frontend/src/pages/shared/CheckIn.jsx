@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useContext, useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { FiArrowRight, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
@@ -283,45 +284,25 @@ const CheckIn = () => {
         },
       );
 
-      // Extract new check-in id from backend's standard response shape
+      // Extract new check-in object from backend's standard response shape
       const createdCheckIn = response.data?.data || response.data;
       const newCheckinId = createdCheckIn?.checkin_id;
 
-      // Save observation if provided (link to this check-in when available)
-      if (observation.trim()) {
-        try {
-          await axios.post(
-            `${API_URL}/observations`,
-            {
-              observation_string: observation,
-              user_id: user.id,
-              checkin_id: newCheckinId || undefined,
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            },
-          );
-        } catch (obsError) {
-          console.error("Error saving observation:", obsError);
-          // Continue with check-in even if observation fails
-        }
-      }
+      // Observaciones ahora se registran en Check-Out, no aquí
 
-      // Prepare the check-in data with all required fields
+      // Prepare the check-in data with all required fields (ensure checkin_id is present)
       const checkInData = {
-        ...response.data,
+        ...createdCheckIn,
+        checkin_id: newCheckinId,
         comercio_nombre: selectedStore.label,
         region_nombre: selectedRegion.nombre,
         region_id: selectedRegion.id,
         store_id: selectedStore.value,
-        created_at: new Date().toISOString(),
+        created_at: createdCheckIn?.created_at || new Date().toISOString(),
       };
 
       setActiveCheckIn(checkInData);
-      setObservation(""); // Clear observation after successful check-in
+      // No limpiar aquí; se permite escribir observación durante la sesión activa y guardar en Check-Out
 
       setTimeout(() => {
         setMessage({
@@ -338,6 +319,7 @@ const CheckIn = () => {
         text: errorMessage,
         isError: true,
       });
+      toast.error(errorMessage || "Error al realizar el check-out", { autoClose: 3000 });
     } finally {
       setIsSaving(false);
     }
@@ -350,6 +332,44 @@ const CheckIn = () => {
     setMessage({ text: "", isError: false });
 
     try {
+      // Guardar observación (opcional) antes de cerrar la sesión
+      if (observation.trim()) {
+        try {
+          // fallback: si no está presente el checkin_id en el estado, consultarlo
+          let checkinIdToUse = activeCheckIn?.checkin_id;
+          if (!checkinIdToUse) {
+            try {
+              const activeRes = await axios.get(`${API_URL}/checkins/active`, {
+                headers: { Authorization: `Bearer ${token}` },
+                validateStatus: (status) => status < 500,
+              });
+              const activeData = activeRes.data?.data || activeRes.data;
+              checkinIdToUse = activeData?.checkin_id;
+            } catch (e) {
+              // ignore, se intentará igual con undefined
+            }
+          }
+
+          await axios.post(
+            `${API_URL}/observations`,
+            {
+              observation_string: observation,
+              user_id: user.id,
+              checkin_id: checkinIdToUse,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+        } catch (obsError) {
+          console.error("Error saving observation:", obsError);
+          // No bloquear el checkout si falla la observación
+        }
+      }
+
       await axios.put(
         `${API_URL}/checkins/${activeCheckIn.checkin_id}/checkout`,
         {},
@@ -360,10 +380,12 @@ const CheckIn = () => {
       );
 
       setActiveCheckIn(null);
+      setObservation(""); // limpiar observación al cerrar sesión
       setMessage({
         text: "Check-out realizado correctamente",
         isError: false,
       });
+      toast.success("Check-out realizado correctamente", { autoClose: 2500 });
     } catch (error) {
       console.error("Error al realizar el check-out:", error);
       const errorMessage =
@@ -473,6 +495,20 @@ const CheckIn = () => {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Campo de observación durante sesión activa (se guarda en Check-Out) */}
+                <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Observación (opcional)
+                  </label>
+                  <textarea
+                    value={observation}
+                    onChange={(e) => setObservation(e.target.value)}
+                    placeholder="Escribe tu observación aquí... (se guardará al hacer Check-Out)"
+                    className="w-full min-h-[100px] p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                    disabled={isSaving}
+                  />
                 </div>
 
                 {/* Information message about restrictions */}
@@ -680,18 +716,7 @@ const CheckIn = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Observación (opcional)
-                      </label>
-                      <textarea
-                        value={observation}
-                        onChange={(e) => setObservation(e.target.value)}
-                        placeholder="Escribe tu observación aquí..."
-                        className="w-full min-h-[100px] p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                        disabled={isSaving}
-                      />
-                    </div>
+                    {/* Observación removida del formulario de Check-In; ahora se ingresa durante la sesión activa y se guarda al hacer Check-Out */}
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-4">

@@ -16,7 +16,7 @@ export const getObservations = async (req, res) => {
                 c.store_id,
                 r.region_name,
                 s.store_name,
-                s.store_address
+                s.address AS store_address
              FROM observaciones o
              LEFT JOIN usuarios u ON o.user_id = u.user_id
              LEFT JOIN checkins c ON o.checkin_id = c.checkin_id
@@ -220,7 +220,7 @@ export const getObservationsWithDetails = async (req, res) => {
                 c.created_at as checkin_date,
                 r.region_name,
                 s.store_name,
-                s.address
+                s.address AS store_address
              FROM observaciones o
              LEFT JOIN usuarios u ON o.user_id = u.user_id
              LEFT JOIN checkins c ON o.checkin_id = c.checkin_id

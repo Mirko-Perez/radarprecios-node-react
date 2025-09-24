@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ToastContainer } from "react-toastify";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
 import "react-toastify/dist/ReactToastify.css";
@@ -537,6 +538,7 @@ function App() {
             </Routes>
           </Suspense>
         </div>
+        <ToastContainer position="top-right" newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
       </LocationPermission>
     </AuthProvider>
   );
