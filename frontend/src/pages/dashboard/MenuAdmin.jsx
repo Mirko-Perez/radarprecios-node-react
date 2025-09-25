@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FiArrowLeft,
   FiBarChart2,
@@ -10,7 +10,7 @@ import {
   FiUsers,
   FiX,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import Dashboard from "../admin/dashboard/Dashboard";
 import DashboardAvanzado from "../admin/dashboard/DashboardAvanzado";
@@ -21,6 +21,7 @@ import UserManagement from "../admin/users/UserManagement";
 
 const MenuAdmin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
   const { user } = useAuth();
@@ -29,6 +30,20 @@ const MenuAdmin = () => {
     setActiveSection(section);
     setSidebarOpen(false);
   };
+
+  // Allow deep-linking to a specific section, e.g., navigate('/admin', { state: { section: 'agenda' }})
+  useEffect(() => {
+    const sectionFromState = location.state?.section;
+    if (sectionFromState) {
+      setActiveSection(sectionFromState);
+    }
+    // cleanup state after reading to avoid sticking when navigating back
+    return () => {
+      if (location.state?.section) {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    };
+  }, [location.state, location.pathname, navigate]);
 
   const getSectionTitle = () => {
     switch (activeSection) {

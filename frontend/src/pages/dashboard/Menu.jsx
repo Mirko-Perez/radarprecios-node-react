@@ -4,6 +4,7 @@ import {
   FiLogOut,
   FiSettings,
   FiUser,
+  FiCalendar,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -12,6 +13,8 @@ const Menu = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = [1, 2].includes(user?.permissionId);
+  const isPromoter = user?.permissionId === 4;
+  const canManageAgenda = isAdmin; // ajustable si quieres permitir coordinadores (permissionId === 3)
 
   const handleLogout = async () => {
     try {
@@ -74,6 +77,58 @@ const Menu = () => {
                   </div>
                 </div>
                 <FiArrowRight className="w-6 h-6 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+            </button>
+          )}
+
+          {/* Mi Agenda (promotor) */}
+          {isPromoter && (
+            <button
+              type="button"
+              onClick={() => navigate("/mi-agenda")}
+              className="w-full bg-white hover:bg-indigo-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-indigo-100 group-hover:bg-indigo-200 rounded-full p-3 transition-colors duration-300">
+                    <FiCalendar className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-xl font-semibold text-gray-800">
+                      Mi Agenda
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Revisa tus visitas asignadas de la semana
+                    </p>
+                  </div>
+                </div>
+                <FiArrowRight className="w-6 h-6 text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+            </button>
+          )}
+
+          {/* Agenda de Visitas (módulo independiente) */}
+          {canManageAgenda && (
+            <button
+              type="button"
+              onClick={() => navigate("/agenda")}
+              className="w-full bg-white hover:bg-amber-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-amber-100 group-hover:bg-amber-200 rounded-full p-3 transition-colors duration-300">
+                    <FiCalendar className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-xl font-semibold text-gray-800">
+                      Agenda de Visitas
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Crea y asigna rutas de visita a promotores
+                    </p>
+                  </div>
+                </div>
+                <FiArrowRight className="w-6 h-6 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
             </button>
           )}

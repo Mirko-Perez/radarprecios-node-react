@@ -82,6 +82,11 @@ const CheckIn = () => {
   const [isLoadingStores, setIsLoadingStores] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(null);
   const [observation, setObservation] = useState("");
+  const [assignedAgenda, setAssignedAgenda] = useState(null);
+  const [showJustifyModal, setShowJustifyModal] = useState(false);
+  const [justifyStoreId, setJustifyStoreId] = useState("");
+  const [justifyNote, setJustifyNote] = useState("");
+  const [isSubmittingJustify, setIsSubmittingJustify] = useState(false);
 
   // Check for active check-in and location permission on component mount
   useEffect(() => {
@@ -138,9 +143,33 @@ const CheckIn = () => {
       }
     };
 
+    const fetchAssignedAgenda = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/agendas/assigned/today`, {
+          headers: { Authorization: `Bearer ${token}` },
+          validateStatus: (s) => s < 500,
+        });
+        if (res.data?.success && res.data?.data) {
+          setAssignedAgenda(res.data.data);
+          // Preseleccionar región
+          const region = {
+            id: res.data.data.region_id,
+            nombre: res.data.data.region_name,
+            ruta: regiones.find(r => r.id === res.data.data.region_id)?.ruta,
+          };
+          setSelectedRegion(region);
+        } else {
+          setAssignedAgenda(null);
+        }
+      } catch (e) {
+        setAssignedAgenda(null);
+      }
+    };
+
     if (token) {
       checkLocationPermission();
       checkActiveCheckIn();
+      fetchAssignedAgenda();
     } else {
       setIsLoading(false);
     }
@@ -179,6 +208,13 @@ const CheckIn = () => {
             ...store,
           })) : []
         );
+        // Si hay una agenda asignada, seleccionar la tienda asignada
+        if (assignedAgenda?.store_id) {
+          const found = (Array.isArray(storesData) ? storesData : []).find(s => s.store_id === assignedAgenda.store_id);
+          if (found) {
+            setSelectedStore({ value: found.store_id, label: found.store_name, ...found });
+          }
+        }
       } catch (error) {
         console.error("Error al cargar tiendas:", error);
         setMessage({
@@ -191,7 +227,43 @@ const CheckIn = () => {
     };
 
     fetchStores();
-  }, [selectedRegion, token]);
+  }, [selectedRegion, token, assignedAgenda]);
+
+  const handleSubmitJustification = async () => {
+    if (!assignedAgenda?.agenda_id) return;
+    if (!justifyStoreId) {
+      toast.error("Selecciona el PDV que intentaste visitar");
+      return;
+    }
+    if (!justifyNote.trim()) {
+      toast.error("Agrega una breve justificación");
+      return;
+    }
+    try {
+      setIsSubmittingJustify(true);
+      await axios.put(
+        `${API_URL}/agendas/${assignedAgenda.agenda_id}/justify`,
+        {
+          justification: justifyNote.trim(),
+          attempted_store_id: justifyStoreId,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Justificación enviada");
+      setShowJustifyModal(false);
+      setAssignedAgenda(null);
+      // limpiar selección para permitir flujo libre
+      setSelectedRegion(null);
+      setSelectedStore(null);
+      setJustifyStoreId("");
+      setJustifyNote("");
+    } catch (e) {
+      const msg = e?.response?.data?.message || "No se pudo enviar la justificación";
+      toast.error(msg);
+    } finally {
+      setIsSubmittingJustify(false);
+    }
+  };
 
   const handleRegionChange = (selectedOption) => {
     if (!selectedOption) {
@@ -304,6 +376,19 @@ const CheckIn = () => {
       setActiveCheckIn(checkInData);
       // No limpiar aquí; se permite escribir observación durante la sesión activa y guardar en Check-Out
 
+      // Si hay agenda asignada para hoy, marcarla como iniciada
+      if (assignedAgenda?.agenda_id) {
+        try {
+          await axios.put(
+            `${API_URL}/agendas/${assignedAgenda.agenda_id}`,
+            { status: 'iniciado' },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        } catch (e) {
+          console.warn('No se pudo marcar agenda como iniciada:', e?.response?.data || e.message);
+        }
+      }
+
       setTimeout(() => {
         setMessage({
           text: "Check-in realizado correctamente",
@@ -386,6 +471,19 @@ const CheckIn = () => {
         isError: false,
       });
       toast.success("Check-out realizado correctamente", { autoClose: 2500 });
+
+      // Marcar agenda como completada si había asignación
+      if (assignedAgenda?.agenda_id) {
+        try {
+          await axios.put(
+            `${API_URL}/agendas/${assignedAgenda.agenda_id}`,
+            { status: 'completado' },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        } catch (e) {
+          console.warn('No se pudo marcar agenda como completada:', e?.response?.data || e.message);
+        }
+      }
     } catch (error) {
       console.error("Error al realizar el check-out:", error);
       const errorMessage =
@@ -649,6 +747,25 @@ const CheckIn = () => {
             ) : (
               /* Check-In Form */
               <div className="space-y-6">
+                {assignedAgenda && (
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-amber-800">Tienes una visita asignada para hoy</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                          Región: <span className="font-medium">{assignedAgenda.region_name}</span> · Tienda: <span className="font-medium">{assignedAgenda.store_name}</span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowJustifyModal(true)}
+                        className="px-3 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+                      >
+                        Justificar
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
@@ -752,6 +869,59 @@ const CheckIn = () => {
             )}
           </div>
         </div>
+        
+        {/* Justify Modal (fuera de la tarjeta para evitar clipping por overflow-hidden) */}
+        {showJustifyModal && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowJustifyModal(false)} />
+            <div className="relative w-full sm:w-[560px] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden z-10">
+              <div className="px-5 py-4 border-b">
+                <h3 className="text-lg font-semibold text-gray-800">Justificar visita no ejecutada</h3>
+                <p className="text-sm text-gray-600 mt-1">Selecciona el PDV que intentaste visitar y agrega una nota de lo ocurrido.</p>
+              </div>
+              <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Punto de venta intentado</label>
+                  <Select
+                    options={stores}
+                    value={stores.find(s => s.value === justifyStoreId) || null}
+                    onChange={(opt) => setJustifyStoreId(opt?.value || "")}
+                    placeholder={isLoadingStores ? "Cargando tiendas..." : "Selecciona una tienda"}
+                    isDisabled={isLoadingStores}
+                    styles={customSelectStyles}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Justificación</label>
+                  <textarea
+                    value={justifyNote}
+                    onChange={(e) => setJustifyNote(e.target.value)}
+                    rows={4}
+                    placeholder="Ej.: Tienda cerrada, cambio de horario, restricción de acceso, etc."
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowJustifyModal(false)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitJustification}
+                  disabled={isSubmittingJustify}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 px-4 rounded-xl"
+                >
+                  {isSubmittingJustify ? "Enviando..." : "Enviar Justificación"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

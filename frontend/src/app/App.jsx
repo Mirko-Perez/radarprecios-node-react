@@ -20,6 +20,8 @@ import UserManagement from "../pages/admin/users/UserManagement";
 import Login from "../pages/auth/Login";
 import Menu from "../pages/dashboard/Menu";
 import MenuAdmin from "../pages/dashboard/MenuAdmin";
+import AgendaManager from "../pages/admin/agenda/AgendaManager";
+import MyAgenda from "../pages/shared/MyAgenda";
 import MenuViewer from "../pages/dashboard/MenuViewer";
 import Andes from "../pages/regions/andes/Andes";
 import AndesComercio from "../pages/regions/andes/AndesComercio";
@@ -411,6 +413,22 @@ function App() {
                 element={
                   <PrivateRoute requireAdmin={true}>
                     <MenuAdmin />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/agenda"
+                element={
+                  <PrivateRoute requireAdmin={true}>
+                    <AgendaManager />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/mi-agenda"
+                element={
+                  <PrivateRoute>
+                    <MyAgenda />
                   </PrivateRoute>
                 }
               />
