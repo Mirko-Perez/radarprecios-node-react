@@ -1,4 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { FiCalendar, FiCheck, FiClock, FiFileText, FiMapPin, FiPlus, FiTrash2, FiUser, FiRefreshCw } from "react-icons/fi";
 import axios from "axios";
@@ -9,16 +10,12 @@ import { AuthContext } from "../../../contexts/AuthContext";
 const AgendaManager = () => {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const { token } = useContext(AuthContext);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({
-    title: "",
-    date: "",
-    region: null,
-    store: null,
-    assignee: null,
-    notes: "",
-  });
+  // Single-visit form removed per UX simplification
+  const [form, setForm] = useState(null);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
@@ -34,13 +31,15 @@ const AgendaManager = () => {
   const [bulk, setBulk] = useState({
     assignee: null,
     region: null,
-    store: null,
+    stores: [], // multi-select of stores
     dateStart: "",
     dateEnd: "",
     weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false },
     titlePrefix: "Visita",
     notes: "",
   });
+  const [showBulk, setShowBulk] = useState(false); // colapsar/expandir sección semanal
+  const [showBulkAdvanced, setShowBulkAdvanced] = useState(false); // opciones avanzadas
 
   const customSelectStyles = {
     control: (provided) => ({
@@ -58,49 +57,9 @@ const AgendaManager = () => {
     }),
   };
 
-  const resetForm = () => {
-    setForm({ title: "", date: "", region: null, store: null, assignee: null, notes: "" });
-  };
+  const resetForm = () => {};
 
-  const addItem = async (e) => {
-    e.preventDefault();
-    if (!form.title || !form.date || !form.region || !form.store || !form.assignee) return;
-
-    try {
-      setLoading(true);
-      const res = await axios.post(
-        `${API_URL}/agendas`,
-        {
-          title: form.title,
-          date: form.date,
-          region_id: form.region.value,
-          store_id: form.store.value,
-          assignee_user_id: form.assignee.value,
-          notes: form.notes?.trim() || "",
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const saved = res.data?.data || res.data;
-      // Normalizar para la UI
-      const normalized = {
-        id: saved.agenda_id,
-        title: saved.title,
-        date: saved.date,
-        region: { value: saved.region_id, label: saved.region_name || form.region.label },
-        store: { value: saved.store_id, label: saved.store_name || form.store.label },
-        assignee: users.find(u => u.value === form.assignee.value) || form.assignee,
-        notes: saved.notes || "",
-        status: saved.status || "pendiente",
-      };
-      setItems((prev) => [normalized, ...prev]);
-      resetForm();
-      toast.success("Agenda creada");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "No se pudo crear la agenda");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const addItem = null; // removed
 
   const removeItem = async (id) => {
     try {
@@ -179,12 +138,22 @@ const AgendaManager = () => {
     }
   }, [token]);
 
+  // Prefill assignee from navigation state (AdminAgendaPreview -> AgendaManager)
+  useEffect(() => {
+    if (!location?.state?.prefillAssignee) return;
+    const pre = location.state.prefillAssignee; // { value, label }
+    // Set both single and bulk forms assignee
+    setForm((f) => ({ ...f, assignee: pre }));
+    setBulk((b) => ({ ...b, assignee: pre }));
+  }, [location?.state?.prefillAssignee]);
+
   // Cargar tiendas cuando cambia región
+  // Cargar tiendas para selección semanal cuando cambia región
   useEffect(() => {
     const loadStores = async () => {
-      if (!form.region?.value) { setStores([]); return; }
+      if (!bulk.region?.value) { setStores([]); return; }
       try {
-        const res = await axios.get(`${API_URL}/stores/region/${form.region.value}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get(`${API_URL}/stores/region/${bulk.region.value}`, { headers: { Authorization: `Bearer ${token}` } });
         const storesData = res.data?.data || res.data || [];
         setStores(storesData.map(s => ({ value: s.store_id, label: s.store_name })));
       } catch (e) {
@@ -192,22 +161,9 @@ const AgendaManager = () => {
       }
     };
     loadStores();
-  }, [form.region?.value, token]);
-
-  // Cargar tiendas para el formulario masivo cuando cambia bulk.region
-  useEffect(() => {
-    const loadStores = async () => {
-      if (!bulk.region?.value) return;
-      try {
-        const res = await axios.get(`${API_URL}/stores/region/${bulk.region.value}`, { headers: { Authorization: `Bearer ${token}` } });
-        const storesData = res.data?.data || res.data || [];
-        // No pisamos el 'stores' del formulario normal para evitar interferencias; usamos el mismo options list reusado
-      } catch (e) {
-        // opcional: toasts
-      }
-    };
-    loadStores();
   }, [bulk.region?.value, token]);
+
+  // (el anterior doble loader se consolidó arriba)
 
   const getDatesByWeekdays = (startStr, endStr, weekdays) => {
     const start = new Date(startStr);
@@ -230,8 +186,8 @@ const AgendaManager = () => {
 
   const handleBulkCreate = async (e) => {
     e.preventDefault();
-    if (!bulk.assignee || !bulk.region || !bulk.store || !bulk.dateStart || !bulk.dateEnd) {
-      toast.error("Completa asignado, región, tienda y rango de fechas");
+    if (!bulk.assignee || !bulk.region || !bulk.stores?.length || !bulk.dateStart || !bulk.dateEnd) {
+      toast.error("Completa asignado, región, tiendas y rango de fechas");
       return;
     }
     const dates = getDatesByWeekdays(bulk.dateStart, bulk.dateEnd, bulk.weekdays);
@@ -239,13 +195,18 @@ const AgendaManager = () => {
       toast.error("No hay fechas seleccionadas en los días marcados");
       return;
     }
-    const items = dates.map(date => ({
-      title: `${bulk.titlePrefix} ${date}`,
-      date,
-      region_id: bulk.region.value,
-      store_id: bulk.store.value,
-      notes: bulk.notes?.trim() || "",
-    }));
+    const items = [];
+    for (const date of dates) {
+      for (const st of bulk.stores) {
+        items.push({
+          title: `${bulk.titlePrefix} ${date}`,
+          date,
+          region_id: bulk.region.value,
+          store_id: st.value,
+          notes: bulk.notes?.trim() || "",
+        });
+      }
+    }
     try {
       setBulkLoading(true);
       const res = await axios.post(`${API_URL}/agendas/bulk`, {
@@ -278,6 +239,16 @@ const AgendaManager = () => {
     <div className="max-w-5xl mx-auto">
       {/* Header actions */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/agenda-preview')}
+            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700"
+            title="Volver a Vista Admin"
+          >
+            ← Volver
+          </button>
+        </div>
         <div className="flex-1">
           <input
             type="text"
@@ -296,117 +267,7 @@ const AgendaManager = () => {
         </button>
       </div>
 
-      {/* Formulario */}
-      <form onSubmit={addItem} className="bg-white rounded-2xl shadow p-4 sm:p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Nueva Visita / Trayectoria</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Título</label>
-            <div className="relative">
-              <FiFileText className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Ej: Ruta Oriente - Tienda A"
-                className="w-full border border-gray-300 rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha</label>
-            <div className="relative">
-              <FiCalendar className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                className="w-full border border-gray-300 rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Región</label>
-            <div className="relative">
-              <FiMapPin className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-              <div className="pl-7">
-                <Select
-                  styles={customSelectStyles}
-                  options={regiones}
-                  value={form.region}
-                  onChange={(opt) => setForm((f) => ({ ...f, region: opt, store: null }))}
-                  placeholder={loadingCatalogs ? "Cargando regiones..." : "Selecciona región"}
-                  isDisabled={loadingCatalogs}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tienda</label>
-            <div className="relative">
-              <FiMapPin className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-              <div className="pl-7">
-                <Select
-                  styles={customSelectStyles}
-                  options={stores}
-                  value={form.store}
-                  onChange={(opt) => setForm((f) => ({ ...f, store: opt }))}
-                  placeholder={!form.region ? "Primero selecciona región" : stores.length === 0 ? "Sin tiendas" : "Selecciona tienda"}
-                  isDisabled={!form.region}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Asignar a</label>
-            <div className="relative">
-              <FiUser className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-              <div className="pl-7">
-                <Select
-                  styles={customSelectStyles}
-                  options={users}
-                  value={form.assignee}
-                  onChange={(opt) => setForm((f) => ({ ...f, assignee: opt }))}
-                  placeholder={loadingCatalogs ? "Cargando usuarios..." : "Selecciona usuario"}
-                  isDisabled={loadingCatalogs}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Notas</label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={3}
-              placeholder="Indicaciones de la visita, objetivos, etc."
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 flex gap-3">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            {loading ? <FiRefreshCw className="w-5 h-5 animate-spin" /> : <FiPlus className="w-5 h-5" />} {loading ? "Creando..." : "Crear"}
-          </button>
-          <button
-            type="button"
-            onClick={resetForm}
-            className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200"
-          >
-            Limpiar
-          </button>
-        </div>
-      </form>
+      {/* Formulario de visita individual fue removido para simplificar el flujo */}
 
       {/* Creación semanal */}
       <form onSubmit={handleBulkCreate} className="bg-white rounded-2xl shadow p-4 sm:p-6 mb-8 border border-indigo-100">
@@ -435,41 +296,114 @@ const AgendaManager = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tienda</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Tiendas (una o varias)</label>
             <Select
               styles={customSelectStyles}
+              isMulti
               options={stores}
-              value={bulk.store}
-              onChange={(opt) => setBulk((b) => ({ ...b, store: opt }))}
-              placeholder={!bulk.region ? "Primero selecciona región" : stores.length === 0 ? "Sin tiendas" : "Selecciona tienda"}
+              value={bulk.stores}
+              onChange={(opts) => setBulk((b) => ({ ...b, stores: opts || [] }))}
+              placeholder={!bulk.region ? "Primero selecciona región" : stores.length === 0 ? "Sin tiendas" : "Selecciona tiendas"}
               isDisabled={!bulk.region}
             />
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Rango de fechas</label>
-            <div className="grid grid-cols-2 gap-2">
-              <input type="date" value={bulk.dateStart} onChange={(e) => setBulk(b => ({ ...b, dateStart: e.target.value }))} className="border border-gray-300 rounded-xl px-3 py-2.5" />
-              <input type="date" value={bulk.dateEnd} onChange={(e) => setBulk(b => ({ ...b, dateEnd: e.target.value }))} className="border border-gray-300 rounded-xl px-3 py-2.5" />
+          <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <label className="text-sm font-bold text-gray-800">Periodo de Programación</label>
             </div>
+            <p className="text-xs text-gray-600 mb-3">Define el rango de fechas para crear las visitas según los días marcados abajo</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">📅 Fecha de inicio</label>
+                <input 
+                  type="date" 
+                  value={bulk.dateStart} 
+                  onChange={(e) => setBulk(b => ({ ...b, dateStart: e.target.value }))} 
+                  className="w-full border-2 border-gray-300 focus:border-blue-500 rounded-lg px-3 py-2.5 text-sm font-medium" 
+                />
+                {bulk.dateStart && (
+                  <p className="text-xs text-blue-700 mt-1 font-medium">
+                    Desde: {new Date(bulk.dateStart + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">🏁 Fecha de fin</label>
+                <input 
+                  type="date" 
+                  value={bulk.dateEnd} 
+                  onChange={(e) => setBulk(b => ({ ...b, dateEnd: e.target.value }))} 
+                  min={bulk.dateStart}
+                  className="w-full border-2 border-gray-300 focus:border-blue-500 rounded-lg px-3 py-2.5 text-sm font-medium" 
+                />
+                {bulk.dateEnd && (
+                  <p className="text-xs text-blue-700 mt-1 font-medium">
+                    Hasta: {new Date(bulk.dateEnd + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+            </div>
+            {bulk.dateStart && bulk.dateEnd && (
+              <div className="mt-3 p-3 bg-white rounded-lg border border-blue-300">
+                <div className="flex items-center gap-2 text-sm">
+                  <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-semibold text-gray-800">
+                    Duración: {Math.ceil((new Date(bulk.dateEnd) - new Date(bulk.dateStart)) / (1000 * 60 * 60 * 24)) + 1} día(s)
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Se crearán visitas en los días seleccionados dentro de este periodo
+                </p>
+              </div>
+            )}
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Días de la semana</label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-semibold text-gray-700">Días activos de visita</label>
+              <div className="flex gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setBulk(b => ({ ...b, weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false } }))}
+                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                >
+                  Lun-Vie
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setBulk(b => ({ ...b, weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true } }))}
+                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                >
+                  Todos
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mb-2">Marca los días en que quieres que se creen visitas dentro del periodo</p>
             <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
               {[
-                { key: 'mon', label: 'Lun' },
-                { key: 'tue', label: 'Mar' },
-                { key: 'wed', label: 'Mié' },
-                { key: 'thu', label: 'Jue' },
-                { key: 'fri', label: 'Vie' },
-                { key: 'sat', label: 'Sáb' },
-                { key: 'sun', label: 'Dom' },
+                { key: 'mon', label: 'Lun', full: 'Lunes' },
+                { key: 'tue', label: 'Mar', full: 'Martes' },
+                { key: 'wed', label: 'Mié', full: 'Miércoles' },
+                { key: 'thu', label: 'Jue', full: 'Jueves' },
+                { key: 'fri', label: 'Vie', full: 'Viernes' },
+                { key: 'sat', label: 'Sáb', full: 'Sábado' },
+                { key: 'sun', label: 'Dom', full: 'Domingo' },
               ].map(d => (
-                <label key={d.key} className={`px-3 py-2 rounded-xl border text-center cursor-pointer ${bulk.weekdays[d.key] ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                <label key={d.key} title={d.full} className={`px-3 py-2.5 rounded-xl border-2 text-center cursor-pointer transition-all font-medium ${bulk.weekdays[d.key] ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-gray-300 text-gray-700 hover:border-indigo-300'}`}>
                   <input type="checkbox" className="hidden" checked={bulk.weekdays[d.key]} onChange={(e) => setBulk(b => ({ ...b, weekdays: { ...b.weekdays, [d.key]: e.target.checked } }))} />
                   {d.label}
                 </label>
               ))}
             </div>
+            {Object.values(bulk.weekdays).filter(Boolean).length > 0 && (
+              <p className="text-xs text-green-700 mt-2 font-medium">
+                ✓ {Object.values(bulk.weekdays).filter(Boolean).length} día(s) seleccionado(s)
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Prefijo del título</label>
@@ -480,9 +414,42 @@ const AgendaManager = () => {
             <textarea value={bulk.notes} onChange={(e) => setBulk(b => ({ ...b, notes: e.target.value }))} rows={2} className="w-full border border-gray-300 rounded-xl px-3 py-2.5" />
           </div>
         </div>
+        {bulk.assignee && bulk.region && bulk.stores.length > 0 && bulk.dateStart && bulk.dateEnd && (
+          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <h4 className="font-bold text-gray-800">Vista previa de creación</h4>
+            </div>
+            <div className="text-sm text-gray-700 space-y-1">
+              <p>👤 <strong>Promotor:</strong> {bulk.assignee.label}</p>
+              <p>📍 <strong>Región:</strong> {bulk.region.label}</p>
+              <p>🏪 <strong>Tiendas:</strong> {bulk.stores.length} seleccionada(s)</p>
+              <p>📅 <strong>Fechas activas:</strong> {(() => {
+                const dates = getDatesByWeekdays(bulk.dateStart, bulk.dateEnd, bulk.weekdays);
+                return `${dates.length} día(s)`;
+              })()}</p>
+              <div className="mt-2 p-2 bg-white rounded border border-green-300">
+                <p className="font-bold text-green-800">
+                  Total a crear: {(() => {
+                    const dates = getDatesByWeekdays(bulk.dateStart, bulk.dateEnd, bulk.weekdays);
+                    return dates.length * bulk.stores.length;
+                  })()} visita(s)
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  ({bulk.stores.length} tienda(s) × {(() => {
+                    const dates = getDatesByWeekdays(bulk.dateStart, bulk.dateEnd, bulk.weekdays);
+                    return dates.length;
+                  })()} día(s))
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mt-5 flex gap-3">
-          <button type="submit" disabled={bulkLoading} className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-            {bulkLoading ? <FiRefreshCw className="w-5 h-5 animate-spin" /> : <FiPlus className="w-5 h-5" />} {bulkLoading ? 'Creando...' : 'Crear Semana'}
+          <button type="submit" disabled={bulkLoading} className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg">
+            {bulkLoading ? <FiRefreshCw className="w-5 h-5 animate-spin" /> : <FiPlus className="w-5 h-5" />} {bulkLoading ? 'Creando...' : 'Crear Agenda Semanal'}
           </button>
         </div>
       </form>

@@ -111,7 +111,7 @@ const Menu = () => {
           {canManageAgenda && (
             <button
               type="button"
-              onClick={() => navigate("/agenda")}
+              onClick={() => navigate("/admin/agenda-preview")}
               className="w-full bg-white hover:bg-amber-50 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl p-6 group transform hover:-translate-y-1"
             >
               <div className="flex items-center justify-between">

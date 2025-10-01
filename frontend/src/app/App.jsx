@@ -21,6 +21,7 @@ import Login from "../pages/auth/Login";
 import Menu from "../pages/dashboard/Menu";
 import MenuAdmin from "../pages/dashboard/MenuAdmin";
 import AgendaManager from "../pages/admin/agenda/AgendaManager";
+import AdminAgendaPreview from "../pages/admin/agenda/AdminAgendaPreview";
 import MyAgenda from "../pages/shared/MyAgenda";
 import MenuViewer from "../pages/dashboard/MenuViewer";
 import Andes from "../pages/regions/andes/Andes";
@@ -413,6 +414,14 @@ function App() {
                 element={
                   <PrivateRoute requireAdmin={true}>
                     <MenuAdmin />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/admin/agenda-preview"
+                element={
+                  <PrivateRoute requireAdmin={true}>
+                    <AdminAgendaPreview />
                   </PrivateRoute>
                 }
               />
