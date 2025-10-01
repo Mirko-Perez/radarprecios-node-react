@@ -15,6 +15,7 @@ const FotoAnaquel = () => {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [analysisResults, setAnalysisResults] = useState(null);
+  const [showResultsModal, setShowResultsModal] = useState(false);
   const [storeInfo, setStoreInfo] = useState(null);
   const [activeCheckIn, setActiveCheckIn] = useState(null);
   const [isCheckingActiveCheckIn, setIsCheckingActiveCheckIn] = useState(true);
@@ -124,6 +125,7 @@ const FotoAnaquel = () => {
       setAnalysisResults(mockAnalysisData);
       setIsAnalyzing(false);
       toast.success("Análisis completado");
+      setShowResultsModal(true);
     }, 3000);
   };
 
@@ -277,108 +279,7 @@ const FotoAnaquel = () => {
               </div>
             </div>
 
-            {/* Analysis Results */}
-            {analysisResults && (
-              <div className="bg-gray-900 rounded-2xl p-8 text-white space-y-6">
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold mb-2">Resultados del Análisis</h3>
-                  <p className="text-gray-300">Categoría: {analysisResults.categoria}</p>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Precio */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-medium">Precio</span>
-                      <span className={`text-3xl font-bold ${getPercentageColor(analysisResults.precio)}`}>
-                        {analysisResults.precio}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-3">
-                      <div 
-                        className={`h-3 rounded-full ${getPercentageBarColor(analysisResults.precio)} transition-all duration-1000`}
-                        style={{ width: `${analysisResults.precio}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-gray-400">Etiquetas de precio visibles, precios correctos según acuerdos comerciales y posicionamiento estratégico</p>
-                    <div className="bg-gray-800 p-3 rounded-lg">
-                      <p className="text-sm text-yellow-300 font-medium mb-2">💡 Sugerencias para mejorar:</p>
-                      {analysisResults.precio >= 80 ? (
-                        <p className="text-sm text-green-300">• Mantener consistencia en etiquetado y verificar precios promocionales</p>
-                      ) : analysisResults.precio >= 60 ? (
-                        <p className="text-sm text-yellow-300">• Revisar etiquetas poco visibles • Verificar concordancia de precios con sistema • Mejorar señalización de ofertas</p>
-                      ) : (
-                        <p className="text-sm text-orange-300">• Aumentar visibilidad de etiquetas • Actualizar precios desactualizados • Mejorar posicionamiento de información promocional</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Inventario */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-medium">Inventario</span>
-                      <span className={`text-3xl font-bold ${getPercentageColor(analysisResults.inventario)}`}>
-                        {analysisResults.inventario}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-3">
-                      <div 
-                        className={`h-3 rounded-full ${getPercentageBarColor(analysisResults.inventario)} transition-all duration-1000`}
-                        style={{ width: `${analysisResults.inventario}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-gray-400">Disponibilidad de productos, ausencia de rupturas de stock y niveles adecuados de inventario</p>
-                    <div className="bg-gray-800 p-3 rounded-lg">
-                      <p className="text-sm text-yellow-300 font-medium mb-2">💡 Sugerencias para mejorar:</p>
-                      {analysisResults.inventario >= 80 ? (
-                        <p className="text-sm text-green-300">• Continuar monitoreando rotación y coordina reposición preventiva</p>
-                      ) : analysisResults.inventario >= 60 ? (
-                        <p className="text-sm text-yellow-300">• Algunos productos con stock bajo. Coordina reposición urgente, revisa productos de alta rotación y optimiza frecuencia de pedidos</p>
-                      ) : (
-                        <p className="text-sm text-orange-300">• Rupturas críticas de stock. Reposición inmediata necesaria. Revisa cadena de suministro, aumenta frecuencia de pedidos y considera stock de seguridad</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Planograma */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-medium">Planograma</span>
-                      <span className={`text-3xl font-bold ${getPercentageColor(analysisResults.planograma)}`}>
-                        {analysisResults.planograma}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-3">
-                      <div 
-                        className={`h-3 rounded-full ${getPercentageBarColor(analysisResults.planograma)} transition-all duration-1000`}
-                        style={{ width: `${analysisResults.planograma}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-gray-400">Cumplimiento del planograma: ubicación correcta, organización por categorías y posicionamiento vs competencia</p>
-                    <div className="bg-gray-800 p-3 rounded-lg">
-                      <p className="text-sm text-yellow-300 font-medium mb-2">💡 Sugerencias para mejorar:</p>
-                      {analysisResults.planograma >= 80 ? (
-                        <p className="text-sm text-green-300">• Mantener la ubicación de productos y revisa nuevos lanzamientos</p>
-                      ) : analysisResults.planograma >= 60 ? (
-                        <p className="text-sm text-yellow-300">• Algunos productos mal ubicados. Reorganiza por categorías, mejora el facing de productos estrella y optimiza altura de productos según rotación</p>
-                      ) : (
-                        <p className="text-sm text-orange-300">• Planograma desorganizado. Reorganización completa necesaria: agrupa por categorías, coloca productos de alta rotación a nivel de ojos, mejora el facing y separa de competencia</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Confianza */}
-                  <div className="border-t border-gray-600 pt-6">
-                    <div className="text-center">
-                      <p className="text-gray-300 mb-2">La confianza de este análisis es</p>
-                      <p className={`text-5xl font-bold ${getPercentageColor(analysisResults.confianza)}`}>
-                        {analysisResults.confianza}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Analysis Results moved to modal for better mobile UX */}
 
             {/* Back Button */}
             <button
@@ -406,6 +307,151 @@ const FotoAnaquel = () => {
           </div>
         </div>
       </div>
+
+      {/* Results Modal */}
+      {showResultsModal && analysisResults && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowResultsModal(false)}
+            aria-hidden="true"
+          />
+
+          {/* Modal content */}
+          <div className="relative w-full sm:w-[560px] max-h-[90vh] bg-gray-900 text-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden z-10">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 bg-gray-800/70 backdrop-blur">
+              <div>
+                <h3 className="text-lg font-semibold">Resultados del Análisis</h3>
+                <p className="text-xs text-gray-300">Categoría: {analysisResults.categoria}</p>
+              </div>
+              <button
+                onClick={() => setShowResultsModal(false)}
+                className="rounded-full p-2 bg-gray-700 hover:bg-gray-600 transition"
+                aria-label="Cerrar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal body (scrollable) */}
+            <div className="p-5 space-y-6 overflow-y-auto max-h-[70vh]">
+              {/* Precio */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-medium">Precio</span>
+                  <span className={`text-3xl font-bold ${getPercentageColor(analysisResults.precio)}`}>
+                    {analysisResults.precio}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${getPercentageBarColor(analysisResults.precio)} transition-all duration-1000`}
+                    style={{ width: `${analysisResults.precio}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-300">Etiquetas de precio visibles, precios correctos según acuerdos comerciales y posicionamiento estratégico</p>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-300 font-medium mb-2">💡 Sugerencias para mejorar:</p>
+                  {analysisResults.precio >= 80 ? (
+                    <p className="text-sm text-green-300">• Mantener consistencia en etiquetado y verificar precios promocionales</p>
+                  ) : analysisResults.precio >= 60 ? (
+                    <p className="text-sm text-yellow-300">• Revisar etiquetas poco visibles • Verificar concordancia de precios con sistema • Mejorar señalización de ofertas</p>
+                  ) : (
+                    <p className="text-sm text-orange-300">• Aumentar visibilidad de etiquetas • Actualizar precios desactualizados • Mejorar posicionamiento de información promocional</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Inventario */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-medium">Inventario</span>
+                  <span className={`text-3xl font-bold ${getPercentageColor(analysisResults.inventario)}`}>
+                    {analysisResults.inventario}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${getPercentageBarColor(analysisResults.inventario)} transition-all duration-1000`}
+                    style={{ width: `${analysisResults.inventario}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-300">Disponibilidad de productos, ausencia de rupturas y niveles adecuados de inventario</p>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-300 font-medium mb-2">💡 Sugerencias para mejorar:</p>
+                  {analysisResults.inventario >= 80 ? (
+                    <p className="text-sm text-green-300">• Continuar monitoreando rotación y coordinar reposición preventiva</p>
+                  ) : analysisResults.inventario >= 60 ? (
+                    <p className="text-sm text-yellow-300">• Stock bajo en algunos productos. Coordina reposición y optimiza frecuencia de pedidos</p>
+                  ) : (
+                    <p className="text-sm text-orange-300">• Rupturas críticas. Reposición inmediata y revisión de cadena de suministro</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Planograma */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-medium">Planograma</span>
+                  <span className={`text-3xl font-bold ${getPercentageColor(analysisResults.planograma)}`}>
+                    {analysisResults.planograma}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${getPercentageBarColor(analysisResults.planograma)} transition-all duration-1000`}
+                    style={{ width: `${analysisResults.planograma}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-300">Cumplimiento del planograma: ubicación correcta, organización por categorías y posicionamiento vs competencia</p>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-300 font-medium mb-2">💡 Sugerencias para mejorar:</p>
+                  {analysisResults.planograma >= 80 ? (
+                    <p className="text-sm text-green-300">• Mantener ubicación de productos y revisar lanzamientos</p>
+                  ) : analysisResults.planograma >= 60 ? (
+                    <p className="text-sm text-yellow-300">• Reorganizar por categorías, mejorar facing y optimizar altura por rotación</p>
+                  ) : (
+                    <p className="text-sm text-orange-300">• Reorganización completa: agrupar por categorías, ubicar alta rotación a nivel de ojos y separar competencia</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Confianza */}
+              <div className="pt-2">
+                <div className="text-center">
+                  <p className="text-gray-300 mb-2">La confianza de este análisis es</p>
+                  <p className={`text-5xl font-bold ${getPercentageColor(analysisResults.confianza)}`}>
+                    {analysisResults.confianza}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="p-4 bg-gray-800/70 backdrop-blur flex gap-3">
+              <button
+                onClick={() => setShowResultsModal(false)}
+                className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-3 px-6 rounded-xl transition-all"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => {
+                  setShowResultsModal(false);
+                  navigate("/check-in");
+                }}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl transition-all"
+              >
+                Volver al Check-In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

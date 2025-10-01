@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ToastContainer } from "react-toastify";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
 import "react-toastify/dist/ReactToastify.css";
@@ -19,6 +20,9 @@ import UserManagement from "../pages/admin/users/UserManagement";
 import Login from "../pages/auth/Login";
 import Menu from "../pages/dashboard/Menu";
 import MenuAdmin from "../pages/dashboard/MenuAdmin";
+import AgendaManager from "../pages/admin/agenda/AgendaManager";
+import AdminAgendaPreview from "../pages/admin/agenda/AdminAgendaPreview";
+import MyAgenda from "../pages/shared/MyAgenda";
 import MenuViewer from "../pages/dashboard/MenuViewer";
 import Andes from "../pages/regions/andes/Andes";
 import AndesComercio from "../pages/regions/andes/AndesComercio";
@@ -414,6 +418,30 @@ function App() {
                 }
               />
               <Route
+                path="/admin/agenda-preview"
+                element={
+                  <PrivateRoute requireAdmin={true}>
+                    <AdminAgendaPreview />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/agenda"
+                element={
+                  <PrivateRoute requireAdmin={true}>
+                    <AgendaManager />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/mi-agenda"
+                element={
+                  <PrivateRoute>
+                    <MyAgenda />
+                  </PrivateRoute>
+                }
+              />
+              <Route
                 path="/admin/crear-usuario"
                 element={
                   <PrivateRoute requireAdmin={true}>
@@ -537,6 +565,7 @@ function App() {
             </Routes>
           </Suspense>
         </div>
+        <ToastContainer position="top-right" newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
       </LocationPermission>
     </AuthProvider>
   );

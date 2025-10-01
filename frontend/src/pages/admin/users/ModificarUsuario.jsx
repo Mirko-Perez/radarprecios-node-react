@@ -3,9 +3,12 @@ import { useAuth } from '../../../contexts/AuthContext';
 import '../shared/AdminForms.css';
 
 const ModificarUsuario = (props) => {
-    const { onBack } = props;
+    const { onBack, embedded = false, filter, onFilterChange } = props;
     const [usuarios, setUsuarios] = useState([]);
-    const [filtro, setFiltro] = useState('');
+    // permitir controlado desde fuera si se pasa filter/onFilterChange
+    const [internalFilter, setInternalFilter] = useState('');
+    const filtro = filter !== undefined ? filter : internalFilter;
+    const setFiltro = onFilterChange || setInternalFilter;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -93,29 +96,24 @@ const ModificarUsuario = (props) => {
 
     if (loading) {
         return (
-            <div className="admin-form-container">
+            <div className={embedded ? "" : "admin-form-container"}>
                 <div className="loading">Cargando usuarios...</div>
             </div>
         );
     }
 
     return (
-        <div style={{ width: '100%', maxWidth: '100%', margin: '0 auto', background: '#fff', borderRadius: 8, boxShadow: '0 2px 10px rgba(0,0,0,0.08)', padding: 32 }}>
-            <div className="d-flex align-items-center mb-4">
-                <button
-                    onClick={onBack}
-                    className="btn btn-outline-secondary btn-sm"
-                >
-                    Volver
-                </button>
-            </div>
+        <div className={embedded ? "" : "admin-form-container"} style={embedded ? {} : { width: '100%', maxWidth: '100%', margin: '0 auto', background: '#fff', borderRadius: 8, boxShadow: '0 2px 10px rgba(0,0,0,0.08)', padding: 32 }}>
+            {!embedded && (
+                <div className="d-flex align-items-center mb-4">
+                    <button onClick={onBack} className="btn btn-outline-secondary btn-sm">Volver</button>
+                </div>
+            )}
             {error && <div className="alert alert-danger mb-3">{error}</div>}
             {success && <div className="alert alert-success mb-3">{success}</div>}
             <div className="mb-3">
                 <div className="input-group">
-                    <span className="input-group-text">
-                        🔍
-                    </span>
+                    <span className="input-group-text">🔍</span>
                     <input
                         type="text"
                         placeholder="Buscar por nombre de usuario..."

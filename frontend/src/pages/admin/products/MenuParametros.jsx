@@ -6,6 +6,7 @@ import CrearComercio from "./CrearComercio";
 import CrearMarca from "./CrearMarca";
 import CrearProducto from "./CrearProducto";
 import DataTable from "../../../components/forms/DataTable";
+import { downloadExcel } from "../../../lib/utils/downloadExcel";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/";
 
@@ -490,6 +491,28 @@ const MenuParametros = () => {
                 className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg shadow hover:from-blue-600 hover:to-blue-700 transition"
               >
                 ➕ Crear {showTable === 'comercio' ? 'Comercio' : showTable === 'marca' ? 'Marca' : 'Producto'}
+              </button>
+              <button
+                onClick={() => {
+                  const type = showTable === 'comercio' ? 'comercios' : showTable === 'marca' ? 'marcas' : 'productos';
+                  const filename = `${type}.xlsx`;
+                  const params = { type, stream: 1 };
+                  // filtros comunes
+                  if (searchTerm) params.q = searchTerm;
+                  // filtros específicos por tabla
+                  if (type === 'comercios') {
+                    if (extraFilter) params.segmento = extraFilter; // segmento
+                  } else if (type === 'marcas') {
+                    if (statusFilter) params.is_active = statusFilter === 'active' ? 1 : 0;
+                  } else if (type === 'productos') {
+                    if (statusFilter) params.is_valid = statusFilter === 'active' ? 1 : 0;
+                  }
+                  downloadExcel('/api/export/excel', params, filename);
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg shadow hover:from-green-700 hover:to-green-800 transition"
+                title="Exportar a Excel"
+              >
+                ⬇️ Exportar Excel
               </button>
               <button
                 className="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-semibold rounded-lg shadow hover:from-gray-600 hover:to-gray-700 transition"
