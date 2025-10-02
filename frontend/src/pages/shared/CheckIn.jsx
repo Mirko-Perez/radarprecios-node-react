@@ -111,6 +111,23 @@ const CheckIn = () => {
   const [justifyNote, setJustifyNote] = useState("");
   const [isSubmittingJustify, setIsSubmittingJustify] = useState(false);
 
+  // Helper: compute today's assigned agenda item given optional store context
+  const computeTodayAssignedAgenda = (weekItems, storeId) => {
+    if (!Array.isArray(weekItems) || weekItems.length === 0) return null;
+    const todayStr = ymdLocal(new Date());
+    // Filter to today's items that are not terminal (completed or no_ejecutado)
+    let todays = weekItems.filter((it) => {
+      const d = String(it.date).includes('T') ? String(it.date).split('T')[0] : String(it.date);
+      return d === todayStr && it.status !== 'completado' && it.status !== 'no_ejecutado';
+    });
+    if (storeId) {
+      const byStore = todays.find((it) => Number(it.store_id) === Number(storeId));
+      if (byStore) return byStore;
+    }
+    // Fallback to the first pending/iniciado of today
+    return todays[0] || null;
+  };
+
   const isPromoter = useMemo(() => {
     if (!user) return false;
     const pid = user.permission_id ?? user.permissionId;
@@ -210,6 +227,13 @@ const CheckIn = () => {
               return acc;
             }, {})
           );
+
+          // Preselect today's assigned agenda (match active check-in store if available)
+          const candidate = computeTodayAssignedAgenda(
+            weekData,
+            activeCheckIn?.store_id || selectedStore?.value
+          );
+          setAssignedAgenda(candidate || null);
           
           // Extraer regiones únicas asignadas
           const uniqueRegionIds = [...new Set(weekData.map(w => w.region_id))];
@@ -237,18 +261,31 @@ const CheckIn = () => {
           setMyWeekMap({});
           setAssignedRegions([]);
           setAssignedStores([]);
+          setAssignedAgenda(null);
         }
       } catch (err) {
         console.error('CheckIn: Error cargando agenda semanal:', err);
         setMyWeekMap({});
         setAssignedRegions([]);
         setAssignedStores([]);
+        setAssignedAgenda(null);
       } finally {
         setMyWeekLoading(false);
       }
     };
     fetchAssignedWeek();
   }, [isPromoter, user, token, regiones, API_URL]);
+
+  // Recompute today's assigned agenda when active check-in, selected store, or weekly map changes
+  useEffect(() => {
+    if (!myWeekMap) return;
+    const weekItems = Object.values(myWeekMap).flat();
+    const candidate = computeTodayAssignedAgenda(
+      weekItems,
+      activeCheckIn?.store_id || selectedStore?.value
+    );
+    setAssignedAgenda(candidate || null);
+  }, [activeCheckIn, selectedStore, myWeekMap]);
 
   // Load stores when a region is selected
   useEffect(() => {
@@ -561,8 +598,38 @@ const CheckIn = () => {
             { status: 'completado' },
             { headers: { Authorization: `Bearer ${token}` } }
           );
+          console.log('Agenda marcada como completada:', assignedAgenda.agenda_id);
         } catch (e) {
           console.warn('No se pudo marcar agenda como completada:', e?.response?.data || e.message);
+        }
+      }
+
+      // Recargar la agenda semanal para reflejar el cambio de estado
+      if (isPromoter) {
+        try {
+          const res = await axios.get(`${API_URL}/agendas/assigned/week`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.data.success && res.data.data && res.data.data.length > 0) {
+            const weekData = res.data.data;
+            setMyWeekMap(
+              weekData.reduce((acc, item) => {
+                const d = item.date.split('T')[0];
+                if (!acc[d]) acc[d] = [];
+                acc[d].push(item);
+                return acc;
+              }, {})
+            );
+            // Recomputar assignedAgenda
+            const weekItems = weekData;
+            const candidate = computeTodayAssignedAgenda(
+              weekItems,
+              activeCheckIn?.store_id || selectedStore?.value
+            );
+            setAssignedAgenda(candidate || null);
+          }
+        } catch (err) {
+          console.error('Error recargando agenda semanal:', err);
         }
       }
     } catch (error) {
@@ -989,58 +1056,76 @@ const CheckIn = () => {
                                 {visits.length} {visits.length === 1 ? 'visita' : 'visitas'}
                               </span>
                             </div>
-                            <div className="p-4 space-y-3">
+                            <div className="p-3 space-y-2">
                               {visits.map((visit, idx) => (
-                                <div key={visit.agenda_id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                  <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                                    {idx + 1}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-semibold text-gray-900 mb-1">{visit.store_name}</div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                      </svg>
-                                      <span>{visit.region_name}</span>
+                                <div key={visit.agenda_id} className={`rounded-lg border-2 transition-all ${
+                                  visit.status === 'completado' ? 'bg-green-50 border-green-300 shadow-sm' :
+                                  visit.status === 'iniciado' ? 'bg-blue-50 border-blue-300 shadow-sm' :
+                                  visit.status === 'no_ejecutado' ? 'bg-amber-50 border-amber-300' :
+                                  'bg-white border-gray-200'
+                                }`}>
+                                  <div className="p-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center font-bold text-base shadow-sm ${
+                                        visit.status === 'completado' ? 'bg-green-500 text-white' :
+                                        visit.status === 'iniciado' ? 'bg-blue-500 text-white' :
+                                        visit.status === 'no_ejecutado' ? 'bg-amber-500 text-white' :
+                                        'bg-gray-300 text-gray-700'
+                                      }`}>
+                                        {idx + 1}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-2 mb-1">
+                                          <h4 className="font-bold text-gray-900 text-base leading-tight">{visit.store_name}</h4>
+                                          <div className="flex-shrink-0">
+                                            {visit.status === 'completado' && (
+                                              <span className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-2 py-1 rounded-full font-bold">
+                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                                Completada
+                                              </span>
+                                            )}
+                                            {visit.status === 'iniciado' && (
+                                              <span className="inline-flex items-center gap-1 text-xs bg-blue-600 text-white px-2 py-1 rounded-full font-bold">
+                                                <svg className="w-3 h-3 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                                </svg>
+                                                En curso
+                                              </span>
+                                            )}
+                                            {visit.status === 'no_ejecutado' && (
+                                              <span className="inline-flex items-center gap-1 text-xs bg-amber-600 text-white px-2 py-1 rounded-full font-bold">
+                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                </svg>
+                                                Justificada
+                                              </span>
+                                            )}
+                                            {visit.status === 'pendiente' && (
+                                              <span className="inline-flex items-center gap-1 text-xs bg-gray-400 text-white px-2 py-1 rounded-full font-bold">
+                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                                </svg>
+                                                Pendiente
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                          <svg className="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          </svg>
+                                          <span className="font-medium">{visit.region_name}</span>
+                                        </div>
+                                        {visit.title && visit.title !== visit.store_name && (
+                                          <div className="text-xs text-gray-600 mt-1.5 italic bg-white/70 px-2 py-0.5 rounded inline-block">
+                                            📋 {visit.title}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                    {visit.title && visit.title !== visit.store_name && (
-                                      <div className="text-xs text-gray-500 mt-1 italic">{visit.title}</div>
-                                    )}
-                                  </div>
-                                  <div className="flex-shrink-0">
-                                    {visit.status === 'completado' && (
-                                      <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
-                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                        Completada
-                                      </span>
-                                    )}
-                                    {visit.status === 'iniciado' && (
-                                      <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
-                                        <svg className="w-3 h-3 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                        </svg>
-                                        En curso
-                                      </span>
-                                    )}
-                                    {visit.status === 'no_ejecutado' && (
-                                      <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium">
-                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                        </svg>
-                                        Justificada
-                                      </span>
-                                    )}
-                                    {visit.status === 'pendiente' && (
-                                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">
-                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                        </svg>
-                                        Pendiente
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -1056,61 +1141,138 @@ const CheckIn = () => {
                   <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
                     <div className="absolute inset-0 bg-black/50" onClick={() => setShowJustifyModal(false)} />
                     <div className="relative w-full sm:w-[560px] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden z-10">
-                      <div className="px-5 py-4 border-b">
-                        <h3 className="text-lg font-semibold text-gray-800">Justificar visita no ejecutada</h3>
-                        <p className="text-sm text-gray-600 mt-1">Selecciona el PDV que intentaste visitar y agrega una nota de lo ocurrido.</p>
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-4">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          Reportar Visita No Ejecutada
+                        </h3>
+                        <p className="text-sm text-white/90 mt-1">Cuéntanos qué sucedió con tu visita programada</p>
                       </div>
                       <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-amber-900 text-sm">Selecciona la visita y tienda</h4>
+                              <p className="text-xs text-amber-700 mt-1">Escoge de tu agenda semanal la visita que no pudiste ejecutar, luego indica cuál tienda intentaste visitar.</p>
+                            </div>
+                          </div>
+                        </div>
+
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Visita de la semana</label>
+                          <label className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-2">
+                            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            1. ¿Cuál visita no ejecutaste?
+                          </label>
                           <Select
                             options={Object.entries(myWeekMap || {}).flatMap(([date, arr]) =>
-                              (arr || []).map(it => ({ value: it.agenda_id, label: `${date} • ${it.title} • ${it.store_name}`, store_id: it.store_id }))
+                              (arr || []).filter(it => it.status !== 'completado' && it.status !== 'no_ejecutado').map(it => {
+                                const dateObj = new Date(date + 'T00:00:00');
+                                const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+                                return {
+                                  value: it.agenda_id,
+                                  label: `${dayName} • ${it.store_name} (${it.region_name})`,
+                                  store_id: it.store_id,
+                                  region_id: it.region_id
+                                };
+                              })
                             )}
-                            value={justifyAgendaId ? { value: justifyAgendaId, label: (Object.entries(myWeekMap || {}).flatMap(([date, arr]) => (arr || []).map(it => ({ value: it.agenda_id, label: `${date} • ${it.title} • ${it.store_name}` })))).find(o => o.value === justifyAgendaId)?.label } : null}
-                            onChange={(opt) => { setJustifyAgendaId(opt?.value || ""); setJustifyStoreId(opt?.store_id || ""); }}
-                            placeholder={myWeekLoading ? "Cargando semana..." : "Selecciona la visita a justificar"}
+                            value={justifyAgendaId ? Object.entries(myWeekMap || {}).flatMap(([date, arr]) =>
+                              (arr || []).filter(it => it.status !== 'completado' && it.status !== 'no_ejecutado').map(it => {
+                                const dateObj = new Date(date + 'T00:00:00');
+                                const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+                                return {
+                                  value: it.agenda_id,
+                                  label: `${dayName} • ${it.store_name} (${it.region_name})`,
+                                  store_id: it.store_id,
+                                  region_id: it.region_id
+                                };
+                              })
+                            ).find(o => o.value === justifyAgendaId) || null : null}
+                            onChange={(opt) => { 
+                              setJustifyAgendaId(opt?.value || ""); 
+                              setJustifyStoreId(opt?.store_id || "");
+                              // Cargar tiendas de esa región automáticamente
+                              if (opt?.region_id) {
+                                axios.get(`${API_URL}/stores/region/${opt.region_id}`, {
+                                  headers: { Authorization: `Bearer ${token}` }
+                                }).then(res => {
+                                  const storesData = res.data?.data || res.data || [];
+                                  setStores(storesData.map(s => ({ value: s.store_id, label: s.store_name })));
+                                }).catch(() => {});
+                              }
+                            }}
+                            placeholder={myWeekLoading ? "Cargando semana..." : "Selecciona de tu agenda..."}
                             isDisabled={myWeekLoading}
                             styles={customSelectStyles}
                           />
+                          {Object.entries(myWeekMap || {}).flatMap(([, arr]) => arr).filter(it => it.status !== 'completado' && it.status !== 'no_ejecutado').length === 0 && (
+                            <p className="text-xs text-gray-500 mt-1">✓ Todas tus visitas están completadas o ya justificadas</p>
+                          )}
                         </div>
+
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Punto de venta intentado</label>
+                          <label className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-2">
+                            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            2. ¿Cuál PDV intentaste visitar?
+                          </label>
                           <Select
-                            options={stores}
-                            value={stores.find(s => s.value === justifyStoreId) || null}
+                            options={assignedStores.map(s => ({ value: s.store_id, label: s.store_name }))}
+                            value={assignedStores.map(s => ({ value: s.store_id, label: s.store_name })).find(s => s.value === justifyStoreId) || null}
                             onChange={(opt) => setJustifyStoreId(opt?.value || "")}
-                            placeholder={isLoadingStores ? "Cargando tiendas..." : "Selecciona una tienda"}
-                            isDisabled={isLoadingStores}
+                            placeholder={!justifyAgendaId ? "Primero selecciona la visita" : "Selecciona el PDV que intentaste..."}
+                            isDisabled={!justifyAgendaId}
                             styles={customSelectStyles}
                           />
+                          <p className="text-xs text-gray-500 mt-1">Selecciona la tienda a la que intentaste ir</p>
                         </div>
+
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Justificación</label>
+                          <label className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-2">
+                            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            3. ¿Qué sucedió?
+                          </label>
                           <textarea
                             value={justifyNote}
                             onChange={(e) => setJustifyNote(e.target.value)}
                             rows={4}
-                            placeholder="Ej.: Tienda cerrada, cambio de horario, restricción de acceso, etc."
-                            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Describe brevemente qué ocurrió:\n• Tienda cerrada\n• Cambio de horario\n• Restricción de acceso\n• Problema de transporte\n• Otro motivo..."
+                            className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm"
                           />
+                          <p className="text-xs text-gray-500 mt-1">Mínimo 10 caracteres</p>
                         </div>
                       </div>
-                      <div className="p-4 border-t flex gap-3">
+                      <div className="p-4 bg-gray-50 border-t flex gap-3">
                         <button
                           type="button"
-                          onClick={() => setShowJustifyModal(false)}
-                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-xl"
+                          onClick={() => {
+                            setShowJustifyModal(false);
+                            setJustifyAgendaId("");
+                            setJustifyStoreId("");
+                            setJustifyNote("");
+                          }}
+                          className="flex-1 bg-white hover:bg-gray-100 text-gray-700 font-semibold py-3 px-4 rounded-xl border-2 border-gray-300 transition-all"
                         >
                           Cancelar
                         </button>
                         <button
                           type="button"
                           onClick={handleSubmitJustification}
-                          disabled={isSubmittingJustify}
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 px-4 rounded-xl"
+                          disabled={isSubmittingJustify || !justifyAgendaId || !justifyStoreId || justifyNote.trim().length < 10}
+                          className="flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all"
                         >
-                          {isSubmittingJustify ? "Enviando..." : "Enviar Justificación"}
+                          {isSubmittingJustify ? "Enviando..." : "✓ Enviar Justificación"}
                         </button>
                       </div>
                     </div>

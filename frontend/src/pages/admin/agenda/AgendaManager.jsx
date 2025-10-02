@@ -32,14 +32,12 @@ const AgendaManager = () => {
     assignee: null,
     region: null,
     stores: [], // multi-select of stores
-    dateStart: "",
-    dateEnd: "",
-    weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false },
+    selectedDates: [], // Fechas específicas seleccionadas ['2025-01-15', ...]
     titlePrefix: "Visita",
     notes: "",
   });
-  const [showBulk, setShowBulk] = useState(false); // colapsar/expandir sección semanal
-  const [showBulkAdvanced, setShowBulkAdvanced] = useState(false); // opciones avanzadas
+  const [userWeekAgenda, setUserWeekAgenda] = useState(null); // Agenda del usuario seleccionado
+  const [loadingUserAgenda, setLoadingUserAgenda] = useState(false);
 
   const customSelectStyles = {
     control: (provided) => ({
@@ -87,6 +85,30 @@ const AgendaManager = () => {
       .some((t) => t.toLowerCase().includes(filter.toLowerCase()))
   );
 
+  const loadAgendas = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/agendas`, { headers: { Authorization: `Bearer ${token}` } });
+      const list = res.data?.data || res.data || [];
+      const getUserLabelById = (id) => {
+        const u = users.find((x) => x.value === id);
+        return u?.label;
+      };
+      const normalized = list.map(a => ({
+        id: a.agenda_id,
+        title: a.title,
+        date: a.date,
+        region: { value: a.region_id, label: a.region_name },
+        store: { value: a.store_id, label: a.store_name },
+        assignee: { value: a.assignee_user_id, label: getUserLabelById(a.assignee_user_id) || a.assignee_name || `Usuario ${a.assignee_user_id}` },
+        notes: a.notes || "",
+        status: a.status,
+      }));
+      setItems(normalized);
+    } catch (e) {
+      toast.error("No se pudieron cargar las agendas");
+    }
+  };
+
   // Cargar catálogos (regiones, usuarios) y listar agendas
   useEffect(() => {
     const loadCatalogs = async () => {
@@ -112,26 +134,6 @@ const AgendaManager = () => {
       }
     };
 
-    const loadAgendas = async () => {
-      try {
-        const res = await axios.get(`${API_URL}/agendas`, { headers: { Authorization: `Bearer ${token}` } });
-        const list = res.data?.data || res.data || [];
-        const normalized = list.map(a => ({
-          id: a.agenda_id,
-          title: a.title,
-          date: a.date,
-          region: { value: a.region_id, label: a.region_name },
-          store: { value: a.store_id, label: a.store_name },
-          assignee: { value: a.assignee_user_id, label: a.assignee_name || `Usuario ${a.assignee_user_id}` },
-          notes: a.notes || "",
-          status: a.status,
-        }));
-        setItems(normalized);
-      } catch (e) {
-        toast.error("No se pudieron cargar las agendas");
-      }
-    };
-
     if (token) {
       loadCatalogs();
       loadAgendas();
@@ -147,8 +149,62 @@ const AgendaManager = () => {
     setBulk((b) => ({ ...b, assignee: pre }));
   }, [location?.state?.prefillAssignee]);
 
+  // Reetiquetar items cuando se carguen usuarios para reemplazar "Usuario X" por el nombre real
+  useEffect(() => {
+    if (!users.length || !items.length) return;
+    setItems((prev) => prev.map((it) => {
+      const found = users.find(u => u.value === it.assignee?.value);
+      if (!found) return it;
+      if (it.assignee?.label === `Usuario ${it.assignee?.value}` || !it.assignee?.label) {
+        return { ...it, assignee: { ...it.assignee, label: found.label } };
+      }
+      return it;
+    }));
+  }, [users]);
+
+  // Cargar agenda del usuario seleccionado para mostrar días ocupados
+  useEffect(() => {
+    const loadUserAgenda = async () => {
+      if (!bulk.assignee?.value) {
+        setUserWeekAgenda(null);
+        return;
+      }
+      setLoadingUserAgenda(true);
+      try {
+        // Calcular semana actual (Lunes a Domingo)
+        const today = new Date();
+        const day = today.getDay();
+        const diffToMonday = (day + 6) % 7;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        
+        const mondayStr = monday.toISOString().slice(0, 10);
+        const sundayStr = sunday.toISOString().slice(0, 10);
+
+        const res = await axios.get(`${API_URL}/agendas`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { assignee_user_id: bulk.assignee.value },
+        });
+        const list = res.data?.data || res.data || [];
+        // Filtrar por semana actual
+        const weekAgendas = list.filter(it => {
+          const d = String(it.date).split('T')[0];
+          return d >= mondayStr && d <= sundayStr;
+        });
+        setUserWeekAgenda(weekAgendas);
+      } catch (e) {
+        console.error('Error cargando agenda del usuario:', e);
+        setUserWeekAgenda([]);
+      } finally {
+        setLoadingUserAgenda(false);
+      }
+    };
+    loadUserAgenda();
+  }, [bulk.assignee, token, API_URL]);
+
   // Cargar tiendas cuando cambia región
-  // Cargar tiendas para selección semanal cuando cambia región
   useEffect(() => {
     const loadStores = async () => {
       if (!bulk.region?.value) { setStores([]); return; }
@@ -186,17 +242,16 @@ const AgendaManager = () => {
 
   const handleBulkCreate = async (e) => {
     e.preventDefault();
-    if (!bulk.assignee || !bulk.region || !bulk.stores?.length || !bulk.dateStart || !bulk.dateEnd) {
-      toast.error("Completa asignado, región, tiendas y rango de fechas");
+    if (!bulk.assignee || !bulk.region || !bulk.stores?.length) {
+      toast.error("Completa asignado, región y tiendas");
       return;
     }
-    const dates = getDatesByWeekdays(bulk.dateStart, bulk.dateEnd, bulk.weekdays);
-    if (dates.length === 0) {
-      toast.error("No hay fechas seleccionadas en los días marcados");
+    if (bulk.selectedDates.length === 0) {
+      toast.error("Selecciona al menos un día en el calendario");
       return;
     }
     const items = [];
-    for (const date of dates) {
+    for (const date of bulk.selectedDates) {
       for (const st of bulk.stores) {
         items.push({
           title: `${bulk.titlePrefix} ${date}`,
@@ -214,25 +269,69 @@ const AgendaManager = () => {
         items,
       }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success("Agenda semanal creada");
-      // refrescar listado
-      const listRes = await axios.get(`${API_URL}/agendas`, { headers: { Authorization: `Bearer ${token}` } });
-      const list = listRes.data?.data || listRes.data || [];
-      const normalized = list.map(a => ({
-        id: a.agenda_id,
-        title: a.title,
-        date: a.date,
-        region: { value: a.region_id, label: a.region_name },
-        store: { value: a.store_id, label: a.store_name },
-        assignee: { value: a.assignee_user_id, label: a.assignee_name || `Usuario ${a.assignee_user_id}` },
-        notes: a.notes || "",
-        status: a.status,
-      }));
-      setItems(normalized);
+      // Limpiar fechas seleccionadas y refrescar
+      setBulk(b => ({ ...b, selectedDates: [] }));
+      await loadAgendas();
+      // Recargar agenda del usuario
+      if (bulk.assignee?.value) {
+        const res = await axios.get(`${API_URL}/agendas`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { assignee_user_id: bulk.assignee.value },
+        });
+        const list = res.data?.data || res.data || [];
+        const today = new Date();
+        const day = today.getDay();
+        const diffToMonday = (day + 6) % 7;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const mondayStr = monday.toISOString().slice(0, 10);
+        const sundayStr = sunday.toISOString().slice(0, 10);
+        const weekAgendas = list.filter(it => {
+          const d = String(it.date).split('T')[0];
+          return d >= mondayStr && d <= sundayStr;
+        });
+        setUserWeekAgenda(weekAgendas);
+      }
     } catch (e) {
       toast.error(e?.response?.data?.message || "No se pudo crear agenda semanal");
     } finally {
       setBulkLoading(false);
     }
+  };
+
+  const toggleDateSelection = (dateStr) => {
+    setBulk(b => {
+      const isSelected = b.selectedDates.includes(dateStr);
+      return {
+        ...b,
+        selectedDates: isSelected
+          ? b.selectedDates.filter(d => d !== dateStr)
+          : [...b.selectedDates, dateStr].sort()
+      };
+    });
+  };
+
+  const getWeekDays = () => {
+    const today = new Date();
+    const day = today.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday);
+    
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push({
+        date: d,
+        dateStr: d.toISOString().slice(0, 10),
+        dayName: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d.getDay()],
+        dayNum: d.getDate(),
+      });
+    }
+    return days;
   };
 
   return (
@@ -247,6 +346,15 @@ const AgendaManager = () => {
             title="Volver a Vista Admin"
           >
             ← Volver
+          </button>
+          <button
+            type="button"
+            onClick={loadAgendas}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center gap-2 transition-all"
+            title="Actualizar lista de agendas"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Actualizar
           </button>
         </div>
         <div className="flex-1">
@@ -307,102 +415,50 @@ const AgendaManager = () => {
               isDisabled={!bulk.region}
             />
           </div>
-          <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <label className="text-sm font-bold text-gray-800">Periodo de Programación</label>
+          <div className="sm:col-span-2 bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 p-6 rounded-2xl">
+            <div className="flex items-center gap-2 mb-4">
+              <FiCalendar className="w-6 h-6 text-indigo-600" />
+              <h3 className="text-lg font-bold text-gray-800">Calendario Semanal</h3>
             </div>
-            <p className="text-xs text-gray-600 mb-3">Define el rango de fechas para crear las visitas según los días marcados abajo</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">📅 Fecha de inicio</label>
-                <input 
-                  type="date" 
-                  value={bulk.dateStart} 
-                  onChange={(e) => setBulk(b => ({ ...b, dateStart: e.target.value }))} 
-                  className="w-full border-2 border-gray-300 focus:border-blue-500 rounded-lg px-3 py-2.5 text-sm font-medium" 
-                />
-                {bulk.dateStart && (
-                  <p className="text-xs text-blue-700 mt-1 font-medium">
-                    Desde: {new Date(bulk.dateStart + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">🏁 Fecha de fin</label>
-                <input 
-                  type="date" 
-                  value={bulk.dateEnd} 
-                  onChange={(e) => setBulk(b => ({ ...b, dateEnd: e.target.value }))} 
-                  min={bulk.dateStart}
-                  className="w-full border-2 border-gray-300 focus:border-blue-500 rounded-lg px-3 py-2.5 text-sm font-medium" 
-                />
-                {bulk.dateEnd && (
-                  <p className="text-xs text-blue-700 mt-1 font-medium">
-                    Hasta: {new Date(bulk.dateEnd + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                )}
-              </div>
-            </div>
-            {bulk.dateStart && bulk.dateEnd && (
-              <div className="mt-3 p-3 bg-white rounded-lg border border-blue-300">
-                <div className="flex items-center gap-2 text-sm">
-                  <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <span className="font-semibold text-gray-800">
-                    Duración: {Math.ceil((new Date(bulk.dateEnd) - new Date(bulk.dateStart)) / (1000 * 60 * 60 * 24)) + 1} día(s)
-                  </span>
+            {!bulk.assignee ? (
+              <p className="text-sm text-gray-600 text-center py-8">Selecciona un promotor para ver su calendario</p>
+            ) : loadingUserAgenda ? (
+              <p className="text-sm text-gray-600 text-center py-8">Cargando calendario...</p>
+            ) : (
+              <>
+                <p className="text-xs text-gray-700 mb-4 font-medium">Haz clic en los días para programar visitas. Los días con visitas existentes aparecen marcados.</p>
+                <div className="grid grid-cols-7 gap-2">
+                  {getWeekDays().map((day) => {
+                    const hasAgenda = userWeekAgenda?.some(a => String(a.date).split('T')[0] === day.dateStr);
+                    const isSelected = bulk.selectedDates.includes(day.dateStr);
+                    const isToday = day.dateStr === new Date().toISOString().slice(0, 10);
+                    return (
+                      <button
+                        key={day.dateStr}
+                        type="button"
+                        onClick={() => toggleDateSelection(day.dateStr)}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-105' :
+                          hasAgenda ? 'bg-red-100 border-red-300 text-red-800' :
+                          'bg-white border-gray-300 text-gray-700 hover:border-indigo-400 hover:bg-indigo-50'
+                        }`}
+                      >
+                        <div className="text-xs font-semibold">{day.dayName}</div>
+                        <div className="text-2xl font-bold mt-1">{day.dayNum}</div>
+                        {hasAgenda && <div className="text-[10px] mt-1">● Ocupado</div>}
+                        {isToday && <div className="text-[10px] mt-1 font-bold">HOY</div>}
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  Se crearán visitas en los días seleccionados dentro de este periodo
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="sm:col-span-2">
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold text-gray-700">Días activos de visita</label>
-              <div className="flex gap-2">
-                <button 
-                  type="button"
-                  onClick={() => setBulk(b => ({ ...b, weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false } }))}
-                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
-                >
-                  Lun-Vie
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setBulk(b => ({ ...b, weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true } }))}
-                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
-                >
-                  Todos
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-gray-600 mb-2">Marca los días en que quieres que se creen visitas dentro del periodo</p>
-            <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
-              {[
-                { key: 'mon', label: 'Lun', full: 'Lunes' },
-                { key: 'tue', label: 'Mar', full: 'Martes' },
-                { key: 'wed', label: 'Mié', full: 'Miércoles' },
-                { key: 'thu', label: 'Jue', full: 'Jueves' },
-                { key: 'fri', label: 'Vie', full: 'Viernes' },
-                { key: 'sat', label: 'Sáb', full: 'Sábado' },
-                { key: 'sun', label: 'Dom', full: 'Domingo' },
-              ].map(d => (
-                <label key={d.key} title={d.full} className={`px-3 py-2.5 rounded-xl border-2 text-center cursor-pointer transition-all font-medium ${bulk.weekdays[d.key] ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-gray-300 text-gray-700 hover:border-indigo-300'}`}>
-                  <input type="checkbox" className="hidden" checked={bulk.weekdays[d.key]} onChange={(e) => setBulk(b => ({ ...b, weekdays: { ...b.weekdays, [d.key]: e.target.checked } }))} />
-                  {d.label}
-                </label>
-              ))}
-            </div>
-            {Object.values(bulk.weekdays).filter(Boolean).length > 0 && (
-              <p className="text-xs text-green-700 mt-2 font-medium">
-                ✓ {Object.values(bulk.weekdays).filter(Boolean).length} día(s) seleccionado(s)
-              </p>
+                {bulk.selectedDates.length > 0 && (
+                  <div className="mt-4 p-3 bg-white rounded-lg border-2 border-green-300">
+                    <p className="text-sm font-semibold text-green-800">
+                      ✓ {bulk.selectedDates.length} día(s) seleccionado(s)
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div>
@@ -455,29 +511,48 @@ const AgendaManager = () => {
       </form>
       {/* Lista */}
       <div className="bg-white rounded-2xl shadow p-4 sm:p-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Agenda Programada</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-800">Agenda Programada</h3>
+          <span className="text-xs bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">
+            {filteredItems.length} elemento(s)
+          </span>
+        </div>
         {filteredItems.length === 0 ? (
           <div className="text-gray-500 text-sm">No hay elementos en la agenda</div>
         ) : (
           <ul className="divide-y divide-gray-100">
             {filteredItems.map((it) => (
               <li key={it.id} className="py-3 sm:py-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-indigo-50/40 rounded-lg px-2 py-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-semibold text-gray-900">{it.title}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                        it.status === "pendiente"
-                          ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                          : "bg-green-50 text-green-700 border-green-200"
+                      <span className="text-base font-semibold text-gray-900 truncate">{it.title}</span>
+                      <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border font-medium ${
+                        it.status === 'programado' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        it.status === 'pendiente' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                        'bg-gray-50 text-gray-700 border-gray-200'
                       }`}>
-                        {it.status === "pendiente" ? "Pendiente" : "Programado"}
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          it.status === 'programado' ? 'bg-blue-600' :
+                          it.status === 'pendiente' ? 'bg-yellow-600' :
+                          'bg-gray-500'
+                        }`} />
+                        {it.status === 'pendiente' ? 'Pendiente' : 'Programado'}
                       </span>
                     </div>
-                    <div className="mt-1 text-sm text-gray-600 flex flex-wrap gap-3">
-                      <span className="inline-flex items-center gap-1"><FiClock /> {new Date(it.date).toLocaleDateString()}</span>
+                    <div className="mt-1 text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                      <span className="inline-flex items-center gap-1">
+                        <FiClock />
+                        {(() => {
+                          const dateStr = String(it.date).slice(0,10);
+                          const dd = new Date(dateStr + 'T00:00:00');
+                          const weekday = dd.toLocaleDateString('es-ES', { weekday: 'short' });
+                          const day = dd.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+                          return `${weekday} • ${day}`;
+                        })()}
+                      </span>
                       <span className="inline-flex items-center gap-1"><FiMapPin /> {it.region?.label} • {it.store?.label}</span>
-                      <span className="inline-flex items-center gap-1"><FiUser /> {it.assignee?.label}</span>
+                      <span className="inline-flex items-center gap-1"><FiUser /> {it.assignee?.label} <span className="text-gray-400">(ID: {it.assignee?.value})</span></span>
                     </div>
                     {it.notes && (
                       <p className="mt-2 text-sm text-gray-500">{it.notes}</p>

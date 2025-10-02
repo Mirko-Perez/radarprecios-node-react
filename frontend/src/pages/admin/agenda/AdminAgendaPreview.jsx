@@ -81,6 +81,7 @@ const AdminAgendaPreview = () => {
 
   // Cuando cambia el filtro de región, invalidar cache y recargar fuentes de la pestaña activa
   useEffect(() => {
+    if (!users.length) return;
     setUserWeek({});
     setSummary(null);
     setCalendarData(null);
@@ -99,12 +100,15 @@ const AdminAgendaPreview = () => {
             headers: { Authorization: `Bearer ${token}` },
             params: { assignee_user_id: id },
           });
-          let list = res.data?.data || res.data || [];
-          list = list.filter((it) => it.date >= mondayStr && it.date <= sundayStr);
+          const raw = res.data?.data || res.data || [];
+          // Normalizar fecha igual que en loadWeeklyCalendar
+          let list = raw
+            .map((it) => ({ ...it, date: String(it.date).slice(0, 10) }))
+            .filter((it) => it.date >= mondayStr && it.date <= sundayStr);
           if (regionFilter?.value) {
             list = list.filter((it) => {
               const rid = Number(it.region_id);
-              return rid === regionFilter.value || it.region_name === regionFilter.label;
+              return rid === Number(regionFilter.value);
             });
           }
           setUserWeek((prev) => ({ ...prev, [id]: list }));
@@ -112,9 +116,9 @@ const AdminAgendaPreview = () => {
       }
     };
     refetchExpanded();
-  }, [regionFilter]);
+  }, [regionFilter, users]);
 
-  // Auto-load data for the active tab when users list changes
+  // Auto-load data for the active tab when users list changes or when data is cleared
   useEffect(() => {
     if (!users.length) return;
     if (activeTab === 'calendar' && !calendarData && !calendarLoading) {
@@ -123,7 +127,7 @@ const AdminAgendaPreview = () => {
     if (activeTab === 'summary' && !summary && !summaryLoading) {
       loadWeeklySummary();
     }
-  }, [users]);
+  }, [users, activeTab, calendarData, summary]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
@@ -144,11 +148,13 @@ const AdminAgendaPreview = () => {
           headers: { Authorization: `Bearer ${token}` },
           params: { assignee_user_id: user.user_id },
         });
-        const list = res.data?.data || res.data || [];
-        // filtro cliente por semana actual
-        let inWeek = list.filter((it) => it.date >= mondayStr && it.date <= sundayStr);
+        const raw = res.data?.data || res.data || [];
+        // Normalizar fecha y filtro cliente por semana actual
+        let inWeek = raw
+          .map((it) => ({ ...it, date: String(it.date).slice(0, 10) }))
+          .filter((it) => it.date >= mondayStr && it.date <= sundayStr);
         if (regionFilter?.value) {
-          inWeek = inWeek.filter((it) => it.region_id === regionFilter.value || it.region_name === regionFilter.label);
+          inWeek = inWeek.filter((it) => Number(it.region_id) === Number(regionFilter.value));
         }
         setUserWeek((prev) => ({ ...prev, [user.user_id]: inWeek }));
       } catch (e) {
@@ -187,7 +193,7 @@ const AdminAgendaPreview = () => {
           let list = res.data?.data || res.data || [];
           list = list.filter((it) => it.date >= mondayStr && it.date <= sundayStr);
           if (regionFilter?.value) {
-            list = list.filter((it) => it.region_id === regionFilter.value || it.region_name === regionFilter.label);
+            list = list.filter((it) => Number(it.region_id) === Number(regionFilter.value));
           }
           const counts = list.reduce((acc, it) => {
             acc.total++;
@@ -203,6 +209,18 @@ const AdminAgendaPreview = () => {
     }
   };
 
+  const handleRefresh = () => {
+    // Invalidar cache y recargar según pestaña activa
+    setUserWeek({});
+    setSummary(null);
+    setCalendarData(null);
+    if (activeTab === 'calendar') {
+      loadWeeklyCalendar();
+    } else if (activeTab === 'summary') {
+      loadWeeklySummary();
+    }
+  };
+
   const loadWeeklyCalendar = async () => {
     setCalendarLoading(true);
     try {
@@ -213,14 +231,18 @@ const AdminAgendaPreview = () => {
             headers: { Authorization: `Bearer ${token}` },
             params: { assignee_user_id: u.user_id },
           });
-          let list = res.data?.data || res.data || [];
-          list = list.filter((it) => it.date >= mondayStr && it.date <= sundayStr);
+          const raw = res.data?.data || res.data || [];
+          // Normalizar fecha a parte de fecha (YYYY-MM-DD) para evitar TZ/hora
+          let list = raw
+            .map((it) => ({ ...it, datePart: String(it.date).slice(0, 10) }))
+            .filter((it) => it.datePart >= mondayStr && it.datePart <= sundayStr);
           if (regionFilter?.value) {
-            list = list.filter((it) => it.region_id === regionFilter.value || it.region_name === regionFilter.label);
+            list = list.filter((it) => Number(it.region_id) === Number(regionFilter.value));
           }
           for (const it of list) {
-            if (!map[it.date]) map[it.date] = [];
-            map[it.date].push({ it, user: u });
+            const dateKey = it.datePart;
+            if (!map[dateKey]) map[dateKey] = [];
+            map[dateKey].push({ it, user: u });
           }
         } catch {}
       }
@@ -243,14 +265,25 @@ const AdminAgendaPreview = () => {
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-white">Agenda • Vista Admin</h2>
-              <button
-                type="button"
-                onClick={() => navigate('/menu')}
-                className="px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 rounded-lg font-medium"
-                title="Volver al Panel Admin"
-              >
-                ← Volver
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg font-medium flex items-center gap-2 transition-all"
+                  title="Actualizar datos"
+                >
+                  <FiRefreshCw className="w-4 h-4" />
+                  Actualizar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/menu')}
+                  className="px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 rounded-lg font-medium"
+                  title="Volver al Panel Admin"
+                >
+                  ← Volver
+                </button>
+              </div>
             </div>
           </div>
 
@@ -276,13 +309,19 @@ const AdminAgendaPreview = () => {
                 <div className="bg-gray-100 rounded-xl p-1 flex">
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('calendar'); loadWeeklyCalendar(); }}
-                    className={`px-3 mx-1 py-1.5 rounded-lg text-sm ${activeTab==='calendar' ? 'bg-indigo-600 text-white shadow' : 'text-white-700 hover:text-blue-900'}`}
+                    onClick={() => { 
+                      setActiveTab('calendar'); 
+                      if (!calendarData) loadWeeklyCalendar(); 
+                    }}
+                    className={`px-3 mx-1 py-1.5 rounded-lg text-sm font-medium ${activeTab==='calendar' ? 'bg-indigo-600 text-white shadow' : 'text-gray-700 hover:bg-indigo-50'}`}
                   >Calendario</button>
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('summary'); loadWeeklySummary(); }}
-                    className={`px-3 py-1.5 rounded-lg text-sm ${activeTab==='summary' ? 'bg-indigo-600 text-white shadow' : 'text-white-700 hover:text-blue-900'}`}
+                    onClick={() => { 
+                      setActiveTab('summary'); 
+                      if (!summary) loadWeeklySummary(); 
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${activeTab==='summary' ? 'bg-indigo-600 text-white shadow' : 'text-gray-700 hover:bg-indigo-50'}`}
                   >Resumen</button>
                 </div>
                 <button
@@ -298,21 +337,43 @@ const AdminAgendaPreview = () => {
             {/* Tabs content */}
             {activeTab === 'calendar' && (
               <div className="mb-4">
+                {regionFilter && (
+                  <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                    <p className="text-sm text-indigo-800">
+                      📍 Mostrando visitas de la región: <span className="font-semibold">{regionFilter.label}</span>
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-7 gap-3">
                   {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map((label, idx) => {
-                    // calcular fecha desde mondayStr
+                    // calcular fecha desde mondayStr usando fecha local
                     const start = new Date(mondayStr + 'T00:00:00');
                     const d = new Date(start);
                     d.setDate(start.getDate() + idx);
-                    const dateStr = d.toISOString().slice(0,10);
+                    const dateStr = ymdLocal(d); // Usar ymdLocal para consistencia
                     const items = calendarData?.[dateStr] || [];
+                    const todayStr = ymdLocal(new Date());
+                    const isToday = dateStr === todayStr;
+                    
+                    // Debug: mostrar total de items en calendarData
+                    const totalItems = calendarData ? Object.keys(calendarData).reduce((sum, key) => sum + (calendarData[key]?.length || 0), 0) : 0;
+                    
                     return (
-                      <div key={label} className="bg-white border rounded-xl p-3 min-h-[140px]">
-                        <div className="text-sm font-semibold text-gray-800 mb-2">{label} • {dateStr}</div>
+                      <div key={label} className={`border-2 rounded-xl p-3 min-h-[140px] ${isToday ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'}`}>
+                        <div className="text-sm font-semibold text-gray-800 mb-2 flex items-center justify-between">
+                          <span>{label}</span>
+                          {isToday && <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded-full">HOY</span>}
+                        </div>
+                        <div className="text-xs text-gray-600 mb-2">{d.getDate()}/{d.getMonth()+1}</div>
                         {calendarLoading ? (
                           <div className="text-xs text-gray-500">Cargando...</div>
+                        ) : !calendarData ? (
+                          <div className="text-xs text-gray-400">Click en Actualizar</div>
                         ) : items.length === 0 ? (
-                          <div className="text-xs text-gray-400">Sin visitas</div>
+                          <div className="text-xs text-gray-400">
+                            Sin visitas
+                            {totalItems > 0 && <div className="text-[10px] text-gray-400 mt-1">({totalItems} total semana)</div>}
+                          </div>
                         ) : (
                           <ul className="space-y-2">
                             {items.map(({ it, user }) => (
@@ -437,28 +498,46 @@ const AdminAgendaPreview = () => {
                             <div className="space-y-3">
                               {days.map((d) => (
                                 <div key={d} className="bg-white border rounded-lg">
-                                  <div className="px-3 py-2 border-b flex items-center justify-between bg-gray-50">
-                                    <div className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                                      <FiCalendar /> {d}
+                                  <div className="px-3 py-2 border-b bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                      <div className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                                        <FiCalendar />
+                                        {(() => {
+                                          const dd = new Date(d + 'T00:00:00');
+                                          const weekday = dd.toLocaleDateString('es-ES', { weekday: 'long' });
+                                          const dayNum = dd.toLocaleDateString('es-ES', { day: 'numeric' });
+                                          const month = dd.toLocaleDateString('es-ES', { month: 'short' });
+                                          return `${weekday} • ${dayNum} ${month}`;
+                                        })()}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="hidden sm:inline text-xs text-gray-500">Agenda programada — <span className="font-medium text-gray-700">{u.username || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}</span> <span className="text-gray-400">(ID: {u.user_id})</span></span>
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">{grouped[d].length} visita(s)</span>
+                                      </div>
                                     </div>
-                                    <span className="text-xs text-gray-500">{grouped[d].length} visita(s)</span>
                                   </div>
                                   <ul className="divide-y">
                                     {grouped[d].map((it) => (
-                                      <li key={it.agenda_id} className="px-3 py-2 flex items-center justify-between">
+                                      <li key={it.agenda_id} className="px-3 py-2 flex items-center justify-between hover:bg-indigo-50/40">
                                         <div className="min-w-0">
-                                          <div className="text-sm font-medium text-gray-900 truncate">{it.title}</div>
+                                          <div className="text-sm font-semibold text-gray-900 truncate">{it.title}</div>
                                           <div className="text-xs text-gray-600 flex items-center gap-2 mt-0.5">
-                                            <FiMapPin /> <span className="truncate">{it.region_name} • {it.store_name}</span>
+                                            <FiMapPin className="text-indigo-600" /> <span className="truncate">{it.region_name} • {it.store_name}</span>
                                           </div>
                                         </div>
-                                        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                                        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border font-medium ${
                                           it.status === 'completado' ? 'bg-green-50 text-green-700 border-green-200' :
                                           it.status === 'iniciado' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                           it.status === 'no_ejecutado' ? 'bg-red-50 text-red-700 border-red-200' :
                                           'bg-yellow-50 text-yellow-700 border-yellow-200'
                                         }`}>
-                                          {it.status}
+                                          <span className={`w-1.5 h-1.5 rounded-full ${
+                                            it.status === 'completado' ? 'bg-green-600' :
+                                            it.status === 'iniciado' ? 'bg-blue-600' :
+                                            it.status === 'no_ejecutado' ? 'bg-red-600' :
+                                            'bg-yellow-600'
+                                          }`} />
+                                          {it.status === 'pendiente' ? 'programado' : it.status}
                                         </span>
                                       </li>
                                     ))}
